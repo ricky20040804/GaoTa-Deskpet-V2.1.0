@@ -24,4 +24,6 @@ xcuserdata/
 # Sparkle
 *.dmg
 *.zip
+!website/public/downloads/
+!website/public/downloads/*.zip
 *.xcworkspace/xcshareddata/swiftpm/
