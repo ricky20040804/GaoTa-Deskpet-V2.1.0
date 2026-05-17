@@ -1,0 +1,27 @@
+<svg width="960" height="600" viewBox="0 0 960 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="960" height="600" rx="36" fill="#FFF8EF"/>
+  <text x="54" y="70" fill="#6757FF" font-family="Arial" font-size="18" font-weight="900" letter-spacing="5">ASSEMBLY</text>
+  <text x="54" y="118" fill="#1D1B24" font-family="Arial" font-size="42" font-weight="900">Place parts and move pivots</text>
+  <rect x="60" y="156" width="462" height="362" rx="30" fill="#F7F8FF" stroke="#B9E8CF" stroke-dasharray="10 10"/>
+  <g transform="translate(152 220)">
+    <ellipse cx="170" cy="136" rx="116" ry="60" fill="#B7783F"/>
+    <circle cx="88" cy="82" r="44" fill="#D89249"/>
+    <path d="M250 108c52-52 102-16 44 34" stroke="#8D552A" stroke-width="26" stroke-linecap="round"/>
+    <path d="M124 194v62M214 194v62" stroke="#6A3D1D" stroke-width="20" stroke-linecap="round"/>
+    <circle cx="88" cy="82" r="7" fill="#1D1B24"/>
+    <circle cx="202" cy="135" r="11" fill="url(#b)" stroke="white" stroke-width="5"/>
+    <circle cx="54" cy="94" r="11" fill="url(#b)" stroke="white" stroke-width="5"/>
+    <circle cx="282" cy="118" r="11" fill="url(#b)" stroke="white" stroke-width="5"/>
+  </g>
+  <rect x="548" y="156" width="354" height="362" rx="30" fill="white" fill-opacity=".78" stroke="#ECE2D8"/>
+  <text x="586" y="216" fill="#1D1B24" font-family="Arial" font-size="26" font-weight="900">Export custom_pet.zip</text>
+  <rect x="586" y="252" width="278" height="54" rx="18" fill="#F7F8FF"/>
+  <text x="612" y="286" fill="#403848" font-family="Arial" font-size="18" font-weight="900">template.json</text>
+  <rect x="586" y="322" width="278" height="54" rx="18" fill="#F7F8FF"/>
+  <text x="612" y="356" fill="#403848" font-family="Arial" font-size="18" font-weight="900">motion.json</text>
+  <rect x="586" y="392" width="278" height="54" rx="18" fill="#F7F8FF"/>
+  <text x="612" y="426" fill="#403848" font-family="Arial" font-size="18" font-weight="900">parts/*.png</text>
+  <rect x="586" y="466" width="278" height="56" rx="28" fill="#2BBF73"/>
+  <text x="665" y="501" fill="white" font-family="Arial" font-size="20" font-weight="900">Generate Pet</text>
+  <defs><linearGradient id="b" x1="0" y1="0" x2="22" y2="22"><stop stop-color="#6757FF"/><stop offset="1" stop-color="#3D8BFF"/></linearGradient></defs>
+</svg>

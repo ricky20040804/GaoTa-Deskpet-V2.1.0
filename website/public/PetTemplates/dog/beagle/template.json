@@ -1,0 +1,142 @@
+{
+  "templateId": "dog_base",
+  "canvas": {
+    "width": 512,
+    "height": 512
+  },
+  "parts": {
+    "leftfrontLeg": {
+      "image": "parts/leftfrontleg.png",
+      "bone": "leftfrontLeg",
+      "position": {
+        "x": -67.62,
+        "y": 30.09
+      },
+      "pivot": {
+        "x": 693,
+        "y": 740.91
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.34,
+      "rotation": 10,
+      "zIndex": 0
+    },
+    "leftbackLeg": {
+      "image": "parts/leftbackleg.png",
+      "bone": "leftbackLeg",
+      "position": {
+        "x": -6.58,
+        "y": 84.83
+      },
+      "pivot": {
+        "x": 1077.41,
+        "y": 648.21
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.29,
+      "rotation": 22,
+      "zIndex": 1
+    },
+    "tail": {
+      "image": "parts/tail.png",
+      "bone": "tail",
+      "position": {
+        "x": -163.12,
+        "y": -9.95
+      },
+      "pivot": {
+        "x": 1156.09,
+        "y": 558.02
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.43,
+      "rotation": -8,
+      "zIndex": 2
+    },
+    "body": {
+      "image": "parts/body.png",
+      "bone": "body",
+      "position": {
+        "x": -23.17,
+        "y": 51.21
+      },
+      "pivot": {
+        "x": 841.16,
+        "y": 668.09
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.32,
+      "rotation": 0,
+      "zIndex": 3
+    },
+    "head": {
+      "image": "parts/head.png",
+      "bone": "head",
+      "position": {
+        "x": -6.5,
+        "y": 70.82
+      },
+      "pivot": {
+        "x": 618.97,
+        "y": 562.69
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.29,
+      "rotation": 0,
+      "zIndex": 4
+    },
+    "rightbackLeg": {
+      "image": "parts/rightbackleg.png",
+      "bone": "rightbackLeg",
+      "position": {
+        "x": 2.21,
+        "y": 83.73
+      },
+      "pivot": {
+        "x": 1055.97,
+        "y": 630.9
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.3,
+      "rotation": 0,
+      "zIndex": 5
+    },
+    "rightfrontLeg": {
+      "image": "parts/rightfrontleg.png",
+      "bone": "rightfrontLeg",
+      "position": {
+        "x": -29.73,
+        "y": 50.23
+      },
+      "pivot": {
+        "x": 677.97,
+        "y": 741.73
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.33,
+      "rotation": 0,
+      "zIndex": 6
+    }
+  }
+}

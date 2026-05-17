@@ -1,0 +1,29 @@
+<svg width="960" height="600" viewBox="0 0 960 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="960" height="600" rx="36" fill="#FBF5EB"/>
+  <rect x="54" y="46" width="852" height="78" rx="39" fill="white" fill-opacity=".78" stroke="#E8DFD4"/>
+  <rect x="76" y="66" width="42" height="42" rx="14" fill="url(#b)"/>
+  <text x="136" y="93" fill="#1D1B24" font-family="Arial" font-size="24" font-weight="800">AI Desktop Pet</text>
+  <text x="620" y="94" fill="#403848" font-family="Arial" font-size="18" font-weight="800">Home</text>
+  <text x="704" y="94" fill="#403848" font-family="Arial" font-size="18" font-weight="800">Features</text>
+  <text x="816" y="94" fill="#403848" font-family="Arial" font-size="18" font-weight="800">Login</text>
+  <text x="78" y="198" fill="#6757FF" font-family="Arial" font-size="18" font-weight="900" letter-spacing="5">START</text>
+  <text x="78" y="260" fill="#1D1B24" font-family="Arial" font-size="58" font-weight="900">Create your own</text>
+  <text x="78" y="322" fill="#1D1B24" font-family="Arial" font-size="58" font-weight="900">desktop pet</text>
+  <text x="80" y="372" fill="#6D6573" font-family="Arial" font-size="22">Choose a mode, edit parts, and export custom_pet.zip.</text>
+  <rect x="82" y="428" width="210" height="74" rx="37" fill="url(#b)"/>
+  <text x="126" y="459" fill="white" font-family="Arial" font-size="22" font-weight="900">开始制作</text>
+  <text x="123" y="483" fill="white" fill-opacity=".78" font-family="Arial" font-size="13" font-weight="800">Start Creating</text>
+  <rect x="316" y="428" width="210" height="74" rx="37" fill="white" fill-opacity=".8" stroke="#E8DFD4"/>
+  <text x="360" y="459" fill="#1D1B24" font-family="Arial" font-size="22" font-weight="900">查看教程</text>
+  <text x="363" y="483" fill="#6D6573" font-family="Arial" font-size="13" font-weight="800">View Tutorial</text>
+  <rect x="604" y="178" width="262" height="262" rx="34" fill="url(#p)"/>
+  <circle cx="700" cy="298" r="56" fill="#fff"/>
+  <path d="M653 319c51 28 94 26 137-5" stroke="#1D1B24" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="694" cy="277" r="8" fill="#1D1B24"/>
+  <circle cx="743" cy="277" r="8" fill="#1D1B24"/>
+  <path d="M608 440h258" stroke="#6757FF" stroke-opacity=".3" stroke-width="2"/>
+  <defs>
+    <linearGradient id="b" x1="82" y1="428" x2="292" y2="502"><stop stop-color="#6757FF"/><stop offset="1" stop-color="#3D8BFF"/></linearGradient>
+    <linearGradient id="p" x1="604" y1="178" x2="866" y2="440"><stop stop-color="#DDF5FF"/><stop offset=".52" stop-color="#F2EEFF"/><stop offset="1" stop-color="#FFE6CA"/></linearGradient>
+  </defs>
+</svg>

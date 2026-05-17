@@ -1,0 +1,142 @@
+{
+  "templateId": "dog_base",
+  "canvas": {
+    "width": 512,
+    "height": 512
+  },
+  "parts": {
+    "rightfrontleg": {
+      "image": "parts/rightfrontleg.png",
+      "bone": "rightfrontleg",
+      "position": {
+        "x": -38.67,
+        "y": -8.06
+      },
+      "pivot": {
+        "x": 587.78,
+        "y": 676.49
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.37,
+      "rotation": 5,
+      "zIndex": 0
+    },
+    "rightbackleg": {
+      "image": "parts/rightbackleg.png",
+      "bone": "rightbackleg",
+      "position": {
+        "x": -47.47,
+        "y": -15.73
+      },
+      "pivot": {
+        "x": 976.92,
+        "y": 648.19
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.38,
+      "rotation": 17,
+      "zIndex": 1
+    },
+    "body": {
+      "image": "parts/body.png",
+      "bone": "body",
+      "position": {
+        "x": 4.16,
+        "y": 2.81
+      },
+      "pivot": {
+        "x": 701,
+        "y": 561
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.35,
+      "rotation": 3,
+      "zIndex": 2
+    },
+    "head": {
+      "image": "parts/head.png",
+      "bone": "head",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pivot": {
+        "x": 522.22,
+        "y": 444.44
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.36,
+      "rotation": 2,
+      "zIndex": 3
+    },
+    "tail": {
+      "image": "parts/tail.png",
+      "bone": "tail",
+      "position": {
+        "x": -60.09,
+        "y": -22.91
+      },
+      "pivot": {
+        "x": 1072.5,
+        "y": 507.5
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.4,
+      "rotation": 0,
+      "zIndex": 4
+    },
+    "leftfrontleg": {
+      "image": "parts/leftfrontleg.png",
+      "bone": "leftfrontleg",
+      "position": {
+        "x": -2.25,
+        "y": 9.57
+      },
+      "pivot": {
+        "x": 611.11,
+        "y": 663.89
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.36,
+      "rotation": 0,
+      "zIndex": 5
+    },
+    "leftbackleg": {
+      "image": "parts/leftbackleg.png",
+      "bone": "leftbackleg",
+      "position": {
+        "x": -36.8,
+        "y": -19.4
+      },
+      "pivot": {
+        "x": 989.74,
+        "y": 648.72
+      },
+      "size": {
+        "width": 1402,
+        "height": 1122
+      },
+      "scale": 0.39,
+      "rotation": 4,
+      "zIndex": 6
+    }
+  }
+}

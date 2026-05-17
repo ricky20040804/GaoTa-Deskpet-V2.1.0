@@ -1,0 +1,74 @@
+{
+  "motionVersion": 1,
+  "defaultMotion": "walk",
+  "motions": {
+    "idle": {
+      "duration": 1.0,
+      "loop": true,
+      "bones": {
+        "tail": [
+          { "time": 0.0, "rotation": -52 },
+          { "time": 0.25, "rotation": 0 },
+          { "time": 0.5, "rotation": 52 },
+          { "time": 0.75, "rotation": 0 },
+          { "time": 1.0, "rotation": -52 }
+        ]
+      }
+    },
+    "walk": {
+      "duration": 1.0,
+      "loop": true,
+      "bones": {
+        "body": [
+          { "time": 0.0, "y": 0 },
+          { "time": 0.25, "y": -4 },
+          { "time": 0.5, "y": 0 },
+          { "time": 0.75, "y": -4 },
+          { "time": 1.0, "y": 0 }
+        ],
+        "head": [
+          { "time": 0.0, "rotation": -2 },
+          { "time": 0.25, "rotation": 0 },
+          { "time": 0.5, "rotation": 2 },
+          { "time": 0.75, "rotation": 0 },
+          { "time": 1.0, "rotation": -2 }
+        ],
+        "tail": [
+          { "time": 0.0, "rotation": -52 },
+          { "time": 0.25, "rotation": 0 },
+          { "time": 0.5, "rotation": 52 },
+          { "time": 0.75, "rotation": 0 },
+          { "time": 1.0, "rotation": -52 }
+        ],
+        "leftfrontLeg": [
+          { "time": 0.0, "rotation": -18 },
+          { "time": 0.25, "rotation": 0 },
+          { "time": 0.5, "rotation": 18 },
+          { "time": 0.75, "rotation": 0 },
+          { "time": 1.0, "rotation": -18 }
+        ],
+        "leftbackLeg": [
+          { "time": 0.0, "rotation": 18 },
+          { "time": 0.25, "rotation": 0 },
+          { "time": 0.5, "rotation": -18 },
+          { "time": 0.75, "rotation": 0 },
+          { "time": 1.0, "rotation": 18 }
+        ],
+        "rightfrontLeg": [
+          { "time": 0.0, "rotation": 18 },
+          { "time": 0.25, "rotation": 0 },
+          { "time": 0.5, "rotation": -18 },
+          { "time": 0.75, "rotation": 0 },
+          { "time": 1.0, "rotation": 18 }
+        ],
+        "rightbackLeg": [
+          { "time": 0.0, "rotation": -18 },
+          { "time": 0.25, "rotation": 0 },
+          { "time": 0.5, "rotation": 18 },
+          { "time": 0.75, "rotation": 0 },
+          { "time": 1.0, "rotation": -18 }
+        ]
+      }
+    }
+  }
+}

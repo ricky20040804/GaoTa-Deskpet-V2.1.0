@@ -1,0 +1,30 @@
+<svg width="960" height="600" viewBox="0 0 960 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="960" height="600" rx="36" fill="#FBF5EB"/>
+  <text x="54" y="70" fill="#6757FF" font-family="Arial" font-size="18" font-weight="900" letter-spacing="5">REAL PET MODE</text>
+  <text x="54" y="118" fill="#1D1B24" font-family="Arial" font-size="42" font-weight="900">Cut transparent PNG parts</text>
+  <rect x="58" y="154" width="478" height="378" rx="30" fill="#DDF5FF"/>
+  <circle cx="202" cy="308" r="112" fill="#FFE3C4"/>
+  <ellipse cx="292" cy="330" rx="150" ry="94" fill="#B7783F"/>
+  <circle cx="214" cy="280" r="13" fill="#1D1B24"/><circle cx="264" cy="280" r="13" fill="#1D1B24"/>
+  <path d="M206 336c42 36 95 34 130-2" stroke="#1D1B24" stroke-width="10" stroke-linecap="round"/>
+  <path d="M152 214c-38-56 42-80 70-20" fill="#8D552A"/>
+  <path d="M328 210c42-54 104-14 42 38" fill="#8D552A"/>
+  <path d="M120 208c64 22 116 24 190 4 34-9 70 2 94 28" stroke="#3D8BFF" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" opacity=".68"/>
+  <circle cx="394" cy="250" r="39" fill="none" stroke="#3D8BFF" stroke-width="6"/>
+  <rect x="82" y="440" width="430" height="58" rx="29" fill="white" fill-opacity=".72"/>
+  <circle cx="124" cy="469" r="20" fill="url(#b)"/>
+  <path d="M115 469h18M124 460v18" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="178" cy="469" r="20" fill="#FFF"/>
+  <path d="M167 479l22-22" stroke="#403848" stroke-width="4" stroke-linecap="round"/>
+  <rect x="230" y="464" width="128" height="10" rx="5" fill="#D8E4FF"/>
+  <circle cx="404" cy="469" r="20" fill="#2BBF73"/>
+  <path d="M394 469l8 8 16-18" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <rect x="584" y="154" width="318" height="378" rx="30" fill="white" fill-opacity=".76" stroke="#ECE2D8"/>
+  <rect x="616" y="190" width="86" height="42" rx="21" fill="url(#b)"/><text x="638" y="217" fill="white" font-family="Arial" font-size="15" font-weight="900">head</text>
+  <rect x="714" y="190" width="80" height="42" rx="21" fill="#FFF8EF"/><text x="737" y="217" fill="#403848" font-family="Arial" font-size="15" font-weight="900">tail</text>
+  <rect x="806" y="190" width="80" height="42" rx="21" fill="#FFF8EF"/><text x="828" y="217" fill="#403848" font-family="Arial" font-size="15" font-weight="900">body</text>
+  <rect x="650" y="282" width="184" height="154" rx="24" fill="#F7F8FF" stroke="#DAD6FF" stroke-dasharray="8 8"/>
+  <circle cx="742" cy="352" r="54" fill="#D89249"/>
+  <text x="694" y="476" fill="#403848" font-family="Arial" font-size="20" font-weight="900">head.png</text>
+  <defs><linearGradient id="b" x1="82" y1="440" x2="512" y2="498"><stop stop-color="#6757FF"/><stop offset="1" stop-color="#3D8BFF"/></linearGradient></defs>
+</svg>
