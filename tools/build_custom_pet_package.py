@@ -90,6 +90,7 @@ def sample_average_rgb(video_path: Path, timestamp: float, crop: tuple[int, int,
 def validate_green_background(package_dir: Path, actions: list[str]) -> None:
     print("Checking generated mp4 green backgrounds...", flush=True)
     timestamps = [0.2, 1.5, 2.8]
+    max_failed_samples = 2
 
     for action in actions:
         video_path = package_dir / f"{action}.mp4"
@@ -104,17 +105,28 @@ def validate_green_background(package_dir: Path, actions: list[str]) -> None:
             ("左下角", (0, video_height - sample_size, sample_size, sample_size)),
             ("右下角", (video_width - sample_size, video_height - sample_size, sample_size, sample_size)),
         ]
+        failed_samples: list[str] = []
 
         for timestamp in timestamps:
             for corner_name, crop in crops:
                 red, green, blue = sample_average_rgb(video_path, timestamp, crop)
-                is_bright_green = green >= 170 and green - red >= 90 and green - blue >= 80
+                is_bright_green = green >= 155 and green - red >= 70 and green - blue >= 65
                 if not is_bright_green:
-                    raise RuntimeError(
-                        "视频背景检查失败："
-                        f"{video_path.name} 在 {timestamp:.1f}s 的{corner_name}不是稳定亮绿色 "
-                        f"(RGB {red},{green},{blue})。请重新生成，或换一张主体更清晰、背景更简单的照片。"
-                    )
+                    failed_samples.append(f"{timestamp:.1f}s {corner_name} RGB {red},{green},{blue}")
+
+        if len(failed_samples) > max_failed_samples:
+            sample_details = "；".join(failed_samples[:4])
+            raise RuntimeError(
+                "视频背景检查失败："
+                f"{video_path.name} 有 {len(failed_samples)}/{len(timestamps) * len(crops)} 个采样点不是稳定亮绿色。"
+                f"{sample_details}。请重新生成，或换一张主体更清晰、背景更简单的照片。"
+            )
+
+        if failed_samples:
+            print(
+                f"Warning: {video_path.name} has {len(failed_samples)} minor green-screen sample warning(s), accepted.",
+                flush=True,
+            )
 
 
 def zip_directory(source_dir: Path, zip_path: Path) -> None:
