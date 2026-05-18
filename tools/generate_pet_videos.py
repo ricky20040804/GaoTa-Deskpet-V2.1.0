@@ -25,30 +25,77 @@ from typing import Any
 
 DASHSCOPE_API = "https://dashscope.aliyuncs.com/api/v1/services/aigc"
 DEFAULT_OUTPUT_DIR = Path("custompet/generated/current")
-
-FIRST_FRAME_PROMPT = (
-    "将用户上传的真实宠物照片转换成正面视角的2D卡通桌面宠物首帧。"
-    "要求：完整身体，面向镜头，表情友好，背景必须是纯亮绿色绿幕（#00FF00），边缘清晰，"
-    "可爱但保留原宠物的毛色、花纹、耳朵、眼睛和体型特征，适合做macOS桌面宠物动画。"
+FRAME_SAFETY_RULE = (
+    "画面构图必须全程保留完整主体，头部、耳朵、尾巴、四肢和身体任何部分都不能超出画面或贴边，"
+    "四周至少保留15%的纯绿色安全边距。动作幅度要控制在画面中央区域内，不能被裁剪。"
+)
+GREEN_SCREEN_RULE = (
+    "背景必须在所有帧中始终保持完全一致的纯亮绿色绿幕（#00FF00），"
+    "不能出现颜色变化、光照变化、阴影、渐变、纹理、噪点、物体、地面线或透明边缘污染，方便后续脚本稳定抠图。"
 )
 
-ACTION_PROMPTS = {
+STYLE_PROMPTS = {
+    "cartoon-pet": (
+        "将用户上传的真实宠物照片转换成正面视角的2D卡通桌面宠物首帧。"
+        "要求：完整身体，面向镜头，表情友好，边缘清晰，"
+        "可爱但保留原宠物的毛色、花纹、耳朵、眼睛和体型特征，适合做macOS桌面宠物动画。"
+        f"{FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
+    ),
+    "real-pet": (
+        "根据用户上传的真实宠物照片生成正面视角的真实版桌面宠物首帧。"
+        "要求：完整身体，面向镜头，姿态自然，外观尽量与照片里的宠物一模一样，"
+        "严格保留原宠物的毛色、花纹、斑点、耳朵形状、眼睛、鼻子、嘴部、尾巴、体型比例和整体神态。"
+        "不要生成卡通风、插画风、拟人风、玩偶风或贴纸风，不要改变品种和身体结构。"
+        "边缘清晰，适合做macOS桌面宠物动画。"
+        f"{FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
+    ),
+    "cartoon-portrait": (
+        "将用户上传的照片转换成正面视角的2D卡通桌面伙伴首帧。"
+        "要求：完整主体，面向镜头，表情友好，边缘清晰，"
+        "保留照片主体的主要五官、发型、服饰和气质特征，适合做macOS桌面宠物动画。"
+        f"{FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
+    ),
+}
+
+ACTION_STYLE_PHRASES = {
+    "cartoon-pet": "保持2D卡通桌面宠物风格，保留同一只宠物的毛色、花纹和体型特征。",
+    "real-pet": (
+        "保持真实版宠物外观，尽量与首帧和原照片中的宠物一模一样，"
+        "不要变成卡通、插画、玩偶或拟人风，保留毛色、花纹、五官、耳朵、尾巴和体型比例。"
+    ),
+    "cartoon-portrait": "保持2D卡通桌面伙伴风格，保留同一主体的五官、发型、服饰和气质特征。",
+}
+
+FIRST_FRAME_PROMPT = STYLE_PROMPTS["cartoon-pet"]
+
+ACTION_PROMPT_TEMPLATES = {
     "idle": (
         "3秒循环动画。宠物正面站在原地，轻微呼吸，尾巴自然摇动，身体位置基本不移动，"
-        "保持2D卡通桌面宠物风格。背景必须是纯亮绿色绿幕（#00FF00），不要有阴影、渐变、纹理或其他物体，动作柔和。"
+        "{style_phrase}动作柔和。"
+        f"{FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
     ),
     "run": (
         "3秒循环动画。宠物从左向右开心奔跑，步伐清楚，身体轻微弹跳，尾巴跟随摆动，"
-        "保持同一只宠物的2D卡通风格。只生成向右奔跑，向左移动将由app镜像。背景必须是纯亮绿色绿幕（#00FF00），不要有阴影、渐变、纹理或其他物体。"
+        "{style_phrase}只生成向右奔跑，向左移动将由app镜像。"
+        f"{FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
+        "奔跑时宠物整体可以做原地跑步动作，但不要让身体横向跑出画面。"
     ),
     "happy": (
         "3秒动画。宠物开心庆祝，原地跳一下或兴奋摇尾巴，表情快乐，像刚刚成功完成任务，"
-        "保持2D卡通桌面宠物风格，主体不要离开画面。背景必须是纯亮绿色绿幕（#00FF00），不要有阴影、渐变、纹理或其他物体。"
+        "{style_phrase}主体不要离开画面。"
+        f"{FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
+        "开心跳跃时高度要小，头顶和耳朵不能接近或超出画面顶部。"
     ),
     "rest": (
         "3秒循环动画。宠物舒服地趴着或坐趴待机，轻微呼吸，偶尔眨眼或轻轻摇尾巴，"
-        "整体安静放松，保持2D卡通桌面宠物风格。背景必须是纯亮绿色绿幕（#00FF00），不要有阴影、渐变、纹理或其他物体。"
+        "整体安静放松，{style_phrase}"
+        f"{FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
     ),
+}
+
+ACTION_PROMPTS = {
+    action: template.format(style_phrase=ACTION_STYLE_PHRASES["cartoon-pet"])
+    for action, template in ACTION_PROMPT_TEMPLATES.items()
 }
 
 
@@ -156,7 +203,12 @@ def choose_video_url(response: dict[str, Any]) -> str:
     raise RuntimeError(f"No video URL found:\n{json.dumps(response, ensure_ascii=False, indent=2)}")
 
 
-def create_first_frame(api_key: str, source_image: str, model: str) -> str:
+def action_prompt(action: str, style: str) -> str:
+    style_phrase = ACTION_STYLE_PHRASES.get(style, ACTION_STYLE_PHRASES["cartoon-pet"])
+    return ACTION_PROMPT_TEMPLATES[action].format(style_phrase=style_phrase)
+
+
+def create_first_frame(api_key: str, source_image: str, model: str, style: str) -> str:
     payload = {
         "model": model,
         "input": {
@@ -164,7 +216,7 @@ def create_first_frame(api_key: str, source_image: str, model: str) -> str:
                 {
                     "role": "user",
                     "content": [
-                        {"text": FIRST_FRAME_PROMPT},
+                        {"text": STYLE_PROMPTS.get(style, FIRST_FRAME_PROMPT)},
                         {"image": source_image},
                     ],
                 }
@@ -186,11 +238,11 @@ def create_first_frame(api_key: str, source_image: str, model: str) -> str:
     return image_url
 
 
-def create_video(api_key: str, first_frame_url: str, action: str, model: str) -> str:
+def create_video(api_key: str, first_frame_url: str, action: str, model: str, style: str) -> str:
     payload = {
         "model": model,
         "input": {
-            "prompt": ACTION_PROMPTS[action],
+            "prompt": action_prompt(action, style),
             "img_url": first_frame_url,
         },
         "parameters": {
@@ -223,7 +275,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image-model", default="wan2.6-image")
     parser.add_argument("--video-model", default="wan2.6-i2v-flash")
     parser.add_argument("--actions", nargs="+", choices=sorted(ACTION_PROMPTS), default=list(ACTION_PROMPTS))
+    parser.add_argument("--style", choices=sorted(STYLE_PROMPTS), default="cartoon-pet")
     parser.add_argument("--save-first-frame-url", type=Path, default=None)
+    parser.add_argument("--save-first-frame", type=Path, default=None, help="Download the generated first frame image to this path.")
     return parser.parse_args()
 
 
@@ -240,14 +294,17 @@ def main() -> int:
         if not args.photo:
             print("Provide a local photo path or --first-frame-url.", file=sys.stderr)
             return 2
-        first_frame_url = create_first_frame(api_key, image_to_data_url(Path(args.photo)), args.image_model)
+        first_frame_url = create_first_frame(api_key, image_to_data_url(Path(args.photo)), args.image_model, args.style)
 
     if args.save_first_frame_url:
         args.save_first_frame_url.parent.mkdir(parents=True, exist_ok=True)
         args.save_first_frame_url.write_text(first_frame_url + "\n", encoding="utf-8")
 
+    if args.save_first_frame:
+        download(first_frame_url, args.save_first_frame)
+
     for action in args.actions:
-        video_url = create_video(api_key, first_frame_url, action, args.video_model)
+        video_url = create_video(api_key, first_frame_url, action, args.video_model, args.style)
         download(video_url, args.output_dir / f"{action}.mp4")
 
     print(f"Done. Videos written to: {args.output_dir}")
