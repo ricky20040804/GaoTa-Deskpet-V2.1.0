@@ -76,6 +76,19 @@ function App() {
   }, [petPhoto]);
 
   useEffect(() => {
+    const playPreviewVideos = () => {
+      document.querySelectorAll('video[data-preview-video="true"]').forEach((video) => {
+        video.muted = true;
+        video.play().catch(() => {});
+      });
+    };
+
+    playPreviewVideos();
+    document.addEventListener('visibilitychange', playPreviewVideos);
+    return () => document.removeEventListener('visibilitychange', playPreviewVideos);
+  }, []);
+
+  useEffect(() => {
     if (generationStatus !== 'running') {
       return undefined;
     }
@@ -208,9 +221,11 @@ function App() {
               <video
                 aria-label="AI Desktop Pet app preview with a cute desktop companion"
                 autoPlay
+                data-preview-video="true"
                 loop
                 muted
                 playsInline
+                preload="auto"
                 src="/cover.mp4?v=20260518222023"
               />
             </div>
@@ -317,9 +332,11 @@ function App() {
                     <video
                       aria-label={`${style.title}示例`}
                       autoPlay
+                      data-preview-video="true"
                       loop
                       muted
                       playsInline
+                      preload="auto"
                       src={style.video}
                     />
                   </span>
