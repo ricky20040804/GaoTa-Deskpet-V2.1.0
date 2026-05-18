@@ -44,6 +44,17 @@ const generationPlans = [
   },
 ];
 
+const generationProgressMessages = [
+  '正在上传照片并提交生成任务...',
+  '正在生成宠物首帧...',
+  '正在生成 idle 待机动作...',
+  '正在生成 run 奔跑动作...',
+  '正在生成 happy 开心动作...',
+  '正在生成 rest 趴着动作...',
+  '正在检查绿幕背景是否稳定...',
+  '正在打包 custompet.zip...'
+];
+
 function App() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isRunnerDownloadOpen, setIsRunnerDownloadOpen] = useState(false);
@@ -63,6 +74,45 @@ function App() {
     setPetPhotoPreview(previewUrl);
     return () => URL.revokeObjectURL(previewUrl);
   }, [petPhoto]);
+
+  useEffect(() => {
+    if (generationStatus !== 'running') {
+      return undefined;
+    }
+
+    const startedAt = Date.now();
+    const updateProgressMessage = () => {
+      const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+      const stepIndex = Math.min(
+        generationProgressMessages.length - 1,
+        Math.floor(elapsedSeconds / 35)
+      );
+      setGenerationMessage(`${generationProgressMessages[stepIndex]} 已等待约 ${elapsedSeconds} 秒，请不要关闭页面。`);
+    };
+
+    updateProgressMessage();
+    const timer = window.setInterval(updateProgressMessage, 1000);
+    return () => window.clearInterval(timer);
+  }, [generationStatus]);
+
+  const formatGenerationError = (error) => {
+    const message = error?.message || '';
+    const text = message
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!text) {
+      return '生成失败，请稍后重新生成。';
+    }
+    if (text.includes('视频背景检查失败')) {
+      return text;
+    }
+    if (text.includes('Failed to fetch')) {
+      return `生成接口暂时连接不上，请稍后再试。`;
+    }
+    return text;
+  };
 
   const handlePetPhotoChange = (event) => {
     const file = event.target.files?.[0];
@@ -112,9 +162,7 @@ function App() {
       setGenerationMessage('生成完成，custompet.zip 已开始下载。解压到“下载”文件夹后，运行器会自动读取 mp4 并实时扣绿播放。');
     } catch (error) {
       setGenerationStatus('error');
-      setGenerationMessage(
-        `生成接口暂时不可用：${error.message}。请确认后端已经接入 ${generationApiUrl}。`
-      );
+      setGenerationMessage(formatGenerationError(error));
     }
   };
 

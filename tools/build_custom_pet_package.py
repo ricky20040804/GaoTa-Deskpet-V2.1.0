@@ -14,6 +14,7 @@ an explicit compatibility mode for local testing.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -33,6 +34,87 @@ def run(command: list[str]) -> None:
 def require_tool(name: str) -> None:
     if shutil.which(name) is None:
         raise RuntimeError(f"{name} is required but was not found in PATH")
+
+
+def probe_video_size(video_path: Path) -> tuple[int, int]:
+    output = subprocess.check_output(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height",
+            "-of",
+            "json",
+            str(video_path),
+        ],
+        cwd=ROOT,
+        text=True,
+    )
+    streams = json.loads(output).get("streams", [])
+    if not streams:
+        raise RuntimeError(f"Cannot inspect generated video: {video_path.name}")
+
+    return int(streams[0]["width"]), int(streams[0]["height"])
+
+
+def sample_average_rgb(video_path: Path, timestamp: float, crop: tuple[int, int, int, int]) -> tuple[int, int, int]:
+    x, y, width, height = crop
+    output = subprocess.check_output(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-ss",
+            f"{timestamp:.2f}",
+            "-i",
+            str(video_path),
+            "-frames:v",
+            "1",
+            "-vf",
+            f"crop={width}:{height}:{x}:{y},scale=1:1,format=rgb24",
+            "-f",
+            "rawvideo",
+            "-",
+        ],
+        cwd=ROOT,
+    )
+    if len(output) < 3:
+        raise RuntimeError(f"Cannot sample generated video background: {video_path.name}")
+
+    return output[0], output[1], output[2]
+
+
+def validate_green_background(package_dir: Path, actions: list[str]) -> None:
+    print("Checking generated mp4 green backgrounds...", flush=True)
+    timestamps = [0.2, 1.5, 2.8]
+
+    for action in actions:
+        video_path = package_dir / f"{action}.mp4"
+        if not video_path.exists():
+            raise RuntimeError(f"Missing generated video: {video_path.name}")
+
+        video_width, video_height = probe_video_size(video_path)
+        sample_size = max(24, min(80, video_width // 12, video_height // 12))
+        crops = [
+            ("左上角", (0, 0, sample_size, sample_size)),
+            ("右上角", (video_width - sample_size, 0, sample_size, sample_size)),
+            ("左下角", (0, video_height - sample_size, sample_size, sample_size)),
+            ("右下角", (video_width - sample_size, video_height - sample_size, sample_size, sample_size)),
+        ]
+
+        for timestamp in timestamps:
+            for corner_name, crop in crops:
+                red, green, blue = sample_average_rgb(video_path, timestamp, crop)
+                is_bright_green = green >= 170 and green - red >= 90 and green - blue >= 80
+                if not is_bright_green:
+                    raise RuntimeError(
+                        "视频背景检查失败："
+                        f"{video_path.name} 在 {timestamp:.1f}s 的{corner_name}不是稳定亮绿色 "
+                        f"(RGB {red},{green},{blue})。请重新生成，或换一张主体更清晰、背景更简单的照片。"
+                    )
 
 
 def zip_directory(source_dir: Path, zip_path: Path) -> None:
@@ -64,6 +146,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--alpha-mov", action="store_true", help="Also create alpha mov files for compatibility testing.")
     parser.add_argument("--hevc-alpha", action="store_true", help="Convert alpha mov files to HEVC with Alpha and package those instead of mp4.")
     parser.add_argument("--skip-hevc", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--skip-background-check", action="store_true", help="Skip green background validation.")
     parser.add_argument("--similarity", type=float, default=0.22)
     parser.add_argument("--blend", type=float, default=0.04)
     return parser.parse_args()
@@ -80,8 +163,9 @@ def main() -> int:
         args.alpha_mov = True
         args.hevc_alpha = False
 
-    if args.alpha_mov or args.hevc_alpha:
+    if not args.skip_background_check or args.alpha_mov or args.hevc_alpha:
         require_tool("ffmpeg")
+        require_tool("ffprobe")
     if args.hevc_alpha:
         require_tool("swift")
 
@@ -110,6 +194,9 @@ def main() -> int:
             str(first_frame_url),
         ]
     )
+
+    if not args.skip_background_check:
+        validate_green_background(package_dir, args.actions)
 
     if args.alpha_mov or args.hevc_alpha:
         run(
