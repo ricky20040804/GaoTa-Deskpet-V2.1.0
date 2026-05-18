@@ -9,19 +9,22 @@ const generationStyles = [
     id: 'cartoon-pet',
     title: '卡通版宠物',
     text: '适合生成可爱的桌面伙伴和贴纸感动画。',
-    video: '/卡通宠物.mp4',
+    videoWebm: '/卡通宠物.webm',
+    videoMov: '/卡通宠物.mov',
   },
   {
     id: 'real-pet',
     title: '真实版宠物',
     text: '尽量保留原宠物照片里的细节和神态。',
-    video: '/真实宠物.mp4',
+    videoWebm: '/真实宠物.webm',
+    videoMov: '/真实宠物.mov',
   },
   {
     id: 'cartoon-portrait',
     title: '卡通版人像',
     text: '把照片生成拟人化、头像风格的桌面伙伴。',
-    video: '/卡通人物.mp4',
+    videoWebm: '/卡通人物.webm',
+    videoMov: '/卡通人物.mov',
   },
 ];
 
@@ -337,8 +340,10 @@ function App() {
                       muted
                       playsInline
                       preload="auto"
-                      src={style.video}
-                    />
+                    >
+                      <source src={style.videoWebm} type="video/webm" />
+                      <source src={style.videoMov} type='video/quicktime; codecs="hvc1"' />
+                    </video>
                   </span>
                   <strong>{style.title}</strong>
                   <span>{style.text}</span>
