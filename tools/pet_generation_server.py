@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import cgi
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -87,8 +86,10 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
                 "--style",
                 style,
             ]
-            if os.environ.get("GAOTA_SKIP_HEVC") == "1" or platform.system() != "Darwin":
-                command.append("--skip-hevc")
+            if os.environ.get("GAOTA_ALPHA_MOV") == "1":
+                command.append("--alpha-mov")
+            if os.environ.get("GAOTA_HEVC_ALPHA") == "1":
+                command.append("--hevc-alpha")
             subprocess.run(command, cwd=ROOT, check=True)
 
             data = zip_path.read_bytes()

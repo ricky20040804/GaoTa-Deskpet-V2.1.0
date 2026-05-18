@@ -89,7 +89,7 @@ function App() {
     }
 
     setGenerationStatus('running');
-    setGenerationMessage('正在生成首帧、四段动作视频和 HEVC Alpha 透明资源包，通常需要几分钟，请不要关闭页面。');
+    setGenerationMessage('正在生成首帧和四段绿幕动作视频，通常需要几分钟，请不要关闭页面。');
 
     try {
       const formData = new FormData();
@@ -109,7 +109,7 @@ function App() {
       const blob = await response.blob();
       downloadBlob(blob, 'custompet.zip');
       setGenerationStatus('success');
-      setGenerationMessage('生成完成，custompet.zip 已开始下载。里面已包含 HEVC Alpha 透明视频，解压到“下载”文件夹后重新打开运行器即可。');
+      setGenerationMessage('生成完成，custompet.zip 已开始下载。解压到“下载”文件夹后，运行器会自动读取 mp4 并实时扣绿播放。');
     } catch (error) {
       setGenerationStatus('error');
       setGenerationMessage(
@@ -292,7 +292,7 @@ function App() {
               <span aria-hidden="true">→</span>
             </button>
             <p className={`generator-note generator-note-${generationStatus}`}>
-              {generationMessage || '生成后的 custompet.zip 解压到“下载”文件夹后，桌面运行器会自动读取。'}
+              {generationMessage || '生成后的 custompet.zip 解压到“下载”文件夹后，桌面运行器会自动读取 mp4 并实时扣绿播放。'}
             </p>
           </div>
         </section>

@@ -4,9 +4,11 @@ Build a downloadable custompet.zip for the website generator.
 
 Pipeline:
   1. Generate first frame and four green-background mp4 actions.
-  2. Key #00FF00 into ProRes 4444 alpha mov files.
-  3. Convert those alpha mov files into smaller HEVC with Alpha mov files.
-  4. Zip the custompet folder so Downloads/custompet is ready for the app.
+  2. Zip the custompet folder so Downloads/custompet is ready for the app.
+
+The macOS runner keys the bright green background in real time, so the website
+package keeps the original mp4 files. Alpha mov generation is still available as
+an explicit compatibility mode for local testing.
 """
 
 from __future__ import annotations
@@ -59,7 +61,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--zip-path", type=Path, default=Path("custompet.zip"), help="Output zip path.")
     parser.add_argument("--style", choices=["cartoon-pet", "real-pet", "cartoon-portrait"], default="cartoon-pet")
     parser.add_argument("--actions", nargs="+", choices=DEFAULT_ACTIONS, default=DEFAULT_ACTIONS)
-    parser.add_argument("--skip-hevc", action="store_true", help="Only create ProRes alpha mov files.")
+    parser.add_argument("--alpha-mov", action="store_true", help="Also create alpha mov files for compatibility testing.")
+    parser.add_argument("--hevc-alpha", action="store_true", help="Convert alpha mov files to HEVC with Alpha and package those instead of mp4.")
+    parser.add_argument("--skip-hevc", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--similarity", type=float, default=0.22)
     parser.add_argument("--blend", type=float, default=0.04)
     return parser.parse_args()
@@ -72,8 +76,13 @@ def main() -> int:
         print("Missing DASHSCOPE_API_KEY environment variable.", file=sys.stderr)
         return 2
 
-    require_tool("ffmpeg")
-    if not args.skip_hevc:
+    if args.skip_hevc:
+        args.alpha_mov = True
+        args.hevc_alpha = False
+
+    if args.alpha_mov or args.hevc_alpha:
+        require_tool("ffmpeg")
+    if args.hevc_alpha:
         require_tool("swift")
 
     package_dir = args.package_dir.resolve()
@@ -102,22 +111,23 @@ def main() -> int:
         ]
     )
 
-    run(
-        [
-            sys.executable,
-            str(ROOT / "tools/key_green_screen.py"),
-            "--dir",
-            str(package_dir),
-            "--actions",
-            *args.actions,
-            "--similarity",
-            str(args.similarity),
-            "--blend",
-            str(args.blend),
-        ]
-    )
+    if args.alpha_mov or args.hevc_alpha:
+        run(
+            [
+                sys.executable,
+                str(ROOT / "tools/key_green_screen.py"),
+                "--dir",
+                str(package_dir),
+                "--actions",
+                *args.actions,
+                "--similarity",
+                str(args.similarity),
+                "--blend",
+                str(args.blend),
+            ]
+        )
 
-    if not args.skip_hevc:
+    if args.hevc_alpha:
         run(
             [
                 "swift",
@@ -131,11 +141,6 @@ def main() -> int:
             for temporary_video in (package_dir / f"{action}.mov", package_dir / f"{action}.mp4"):
                 if temporary_video.exists():
                     temporary_video.unlink()
-    else:
-        for action in args.actions:
-            temporary_mp4 = package_dir / f"{action}.mp4"
-            if temporary_mp4.exists():
-                temporary_mp4.unlink()
 
     zip_directory(package_dir, args.zip_path.resolve())
     print(f"Done. Package written to: {args.zip_path.resolve()}")

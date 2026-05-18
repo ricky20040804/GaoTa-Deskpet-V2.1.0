@@ -33,12 +33,14 @@ struct PetVideoLibrary {
     private func generatedURL(for action: PetAction) -> URL? {
         let candidates = Self.candidatePetDirectories(petID: petID).flatMap { directory in
             [
-                directory.appendingPathComponent("\(action.rawValue).mov"),
-                directory.appendingPathComponent("\(action.rawValue).mp4")
+                directory.appendingPathComponent("\(action.rawValue).mp4"),
+                directory.appendingPathComponent("hevc/\(action.rawValue).mov"),
+                directory.appendingPathComponent("\(action.rawValue).mov")
             ]
         } + [
-            petDirectory.appendingPathComponent("\(action.rawValue).mov"),
-            petDirectory.appendingPathComponent("\(action.rawValue).mp4")
+            petDirectory.appendingPathComponent("\(action.rawValue).mp4"),
+            petDirectory.appendingPathComponent("hevc/\(action.rawValue).mov"),
+            petDirectory.appendingPathComponent("\(action.rawValue).mov")
         ]
 
         return candidates.first {
@@ -57,6 +59,12 @@ struct PetVideoLibrary {
         var directories: [URL] = []
         let fileManager = FileManager.default
         let projectSuffix = "custompet/generated/\(petID)"
+        let downloadsURL = fileManager.urls(for: .downloadsDirectory, in: .userDomainMask).first
+
+        if petID == "current", let downloadsURL {
+            directories.append(downloadsURL.appendingPathComponent("custompet", isDirectory: true))
+            directories.append(downloadsURL.appendingPathComponent("custom_pet", isDirectory: true))
+        }
 
         directories.append(URL(fileURLWithPath: fileManager.currentDirectoryPath).appendingPathComponent(projectSuffix, isDirectory: true))
         directories.append(URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop/GaoTa-Deskpet/\(projectSuffix)", isDirectory: true))

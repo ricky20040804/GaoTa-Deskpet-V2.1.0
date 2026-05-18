@@ -1,5 +1,65 @@
 import AVFoundation
 import AppKit
+import CoreImage
+
+final class RealtimeVideoRenderer {
+    private weak var layer: CALayer?
+    private let context = CIContext(options: [.useSoftwareRenderer: false])
+    private var output: AVPlayerItemVideoOutput?
+    private var filter: ((CIImage) -> CIImage)?
+    private var timer: Timer?
+
+    init(layer: CALayer) {
+        self.layer = layer
+        start()
+    }
+
+    deinit {
+        timer?.invalidate()
+    }
+
+    func configure(item: AVPlayerItem, filter: ((CIImage) -> CIImage)?) {
+        let attributes: [String: Any] = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferMetalCompatibilityKey as String: true
+        ]
+        let output = AVPlayerItemVideoOutput(pixelBufferAttributes: attributes)
+        item.add(output)
+        self.output = output
+        self.filter = filter
+        layer?.contents = nil
+    }
+
+    private func start() {
+        timer?.invalidate()
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            self?.render()
+        }
+        timer.tolerance = 1.0 / 120.0
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    private func render() {
+        guard let layer, let output else { return }
+
+        let itemTime = output.itemTime(forHostTime: CACurrentMediaTime())
+        guard output.hasNewPixelBuffer(forItemTime: itemTime) || layer.contents == nil else { return }
+        guard let pixelBuffer = output.copyPixelBuffer(forItemTime: itemTime, itemTimeForDisplay: nil) else { return }
+
+        var image = CIImage(cvPixelBuffer: pixelBuffer)
+        if let filter {
+            image = filter(image)
+        }
+
+        guard let cgImage = context.createCGImage(image, from: image.extent) else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
+        layer.contents = cgImage
+        CATransaction.commit()
+    }
+}
 
 enum CharacterSize: String, CaseIterable {
     case large, medium, small
@@ -12,14 +72,38 @@ enum CharacterSize: String, CaseIterable {
     }
     var displayName: String {
         switch self {
-        case .large: return "Large"
-        case .medium: return "Medium"
-        case .small: return "Small"
+        case .large: return "大"
+        case .medium: return "中"
+        case .small: return "小"
         }
     }
 }
 
 class WalkerCharacter {
+    private static let chromaKeyKernel = CIColorKernel(source: """
+    kernel vec4 chromaKey(__sample pixel) {
+        float red = pixel.r;
+        float green = pixel.g;
+        float blue = pixel.b;
+        float maxRedBlue = max(red, blue);
+        float greenExcess = green - maxRedBlue;
+
+        float greenStrength = smoothstep(0.32, 0.50, green);
+        float dominance = smoothstep(0.08, 0.20, greenExcess);
+        float key = clamp(greenStrength * dominance, 0.0, 1.0);
+        float alpha = pixel.a * (1.0 - key);
+
+        if (alpha < 0.03) {
+            return vec4(0.0, 0.0, 0.0, 0.0);
+        }
+
+        float despill = smoothstep(0.02, 0.16, greenExcess);
+        float cleanedGreen = min(green, maxRedBlue + 0.03);
+        vec3 cleaned = vec3(red, mix(green, cleanedGreen, despill), blue);
+        return vec4(cleaned, alpha);
+    }
+    """)
+
     let videoLibrary: PetVideoLibrary
     let name: String
     var provider: AgentProvider {
@@ -42,9 +126,11 @@ class WalkerCharacter {
         }
     }
     var window: NSWindow!
-    var playerLayer: AVPlayerLayer!
-    var queuePlayer: AVQueuePlayer!
-    var looper: AVPlayerLooper?
+    var playerLayer: CALayer!
+    var queuePlayer: AVPlayer!
+    private var videoRenderer: RealtimeVideoRenderer!
+    private var actionAssets: [PetAction: AVAsset] = [:]
+    private var playbackEndObserver: NSObjectProtocol?
     private var currentAction: PetAction?
     private var actionBeforeTemporaryAction: PetAction?
     private var temporaryActionEndTime: CFTimeInterval = 0
@@ -96,6 +182,8 @@ class WalkerCharacter {
     var isAgentBusy: Bool { session?.isBusy ?? false }
     var thinkingBubbleWindow: NSWindow?
     private(set) var isManuallyVisible = true
+    private var isManuallyPositioned = false
+    private var nextIdleHappyTime: CFTimeInterval = CACurrentMediaTime() + Double.random(in: 8.0...20.0)
     private var environmentHiddenAt: CFTimeInterval?
     private var wasPopoverVisibleBeforeEnvironmentHide = false
     private var wasBubbleVisibleBeforeEnvironmentHide = false
@@ -137,13 +225,17 @@ class WalkerCharacter {
             return
         }
 
-        queuePlayer = AVQueuePlayer()
-        configurePlayer(with: videoURL, action: .idle, shouldPlay: true)
+        preloadActionAssets()
+        queuePlayer = AVPlayer()
+        queuePlayer.automaticallyWaitsToMinimizeStalling = false
 
-        playerLayer = AVPlayerLayer(player: queuePlayer)
-        playerLayer.videoGravity = .resizeAspect
+        playerLayer = CALayer()
+        playerLayer.contentsGravity = .resizeAspect
+        playerLayer.isOpaque = false
         playerLayer.backgroundColor = NSColor.clear.cgColor
         playerLayer.frame = CGRect(x: 0, y: 0, width: displayWidth, height: displayHeight)
+        videoRenderer = RealtimeVideoRenderer(layer: playerLayer)
+        configurePlayer(with: actionAssets[.idle] ?? AVAsset(url: videoURL), action: .idle, shouldPlay: true)
 
         let screen = NSScreen.main!
         let dockTopY = screen.visibleFrame.origin.y
@@ -174,17 +266,50 @@ class WalkerCharacter {
         window.orderFrontRegardless()
     }
 
-    private func configurePlayer(with url: URL, action: PetAction, shouldPlay: Bool) {
-        let asset = AVAsset(url: url)
-        queuePlayer.removeAllItems()
-        looper = AVPlayerLooper(player: queuePlayer, templateItem: AVPlayerItem(asset: asset))
+    private func preloadActionAssets() {
+        actionAssets.removeAll()
+        for action in PetAction.allCases {
+            if let url = videoLibrary.url(for: action) {
+                actionAssets[action] = AVAsset(url: url)
+            }
+        }
+    }
+
+    private func configurePlayer(with asset: AVAsset, action: PetAction, shouldPlay: Bool) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
+        if let playbackEndObserver {
+            NotificationCenter.default.removeObserver(playbackEndObserver)
+            self.playbackEndObserver = nil
+        }
+
+        let item = AVPlayerItem(asset: asset)
+        item.preferredForwardBufferDuration = 0
+        let filter = shouldApplyGreenScreenKey(to: asset) ? Self.applyGreenScreenKey : nil
+        videoRenderer?.configure(item: item, filter: filter)
+        queuePlayer.replaceCurrentItem(with: item)
+        playbackEndObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self, weak item] _ in
+            guard let self, let item, self.queuePlayer.currentItem === item else { return }
+            item.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+                guard let self else { return }
+                if self.isManuallyVisible && self.environmentHiddenAt == nil {
+                    self.queuePlayer.play()
+                }
+            }
+        }
+
         currentAction = action
-        queuePlayer.seek(to: .zero)
         if shouldPlay {
             queuePlayer.play()
         } else {
             queuePlayer.pause()
         }
+        CATransaction.commit()
     }
 
     func setAction(_ action: PetAction, shouldPlay: Bool = true, restart: Bool = false) {
@@ -197,13 +322,22 @@ class WalkerCharacter {
             return
         }
 
-        guard let url = videoLibrary.url(for: action) else {
+        guard let asset = actionAssets[action] ?? videoLibrary.url(for: action).map({ AVAsset(url: $0) }) else {
             print("Pet video for \(action.rawValue) not found")
             return
         }
 
-        configurePlayer(with: url, action: action, shouldPlay: shouldPlay)
+        configurePlayer(with: asset, action: action, shouldPlay: shouldPlay)
         updateFlip()
+    }
+
+    private func shouldApplyGreenScreenKey(to asset: AVAsset) -> Bool {
+        guard let urlAsset = asset as? AVURLAsset else { return false }
+        return urlAsset.url.pathExtension.lowercased() == "mp4"
+    }
+
+    private static func applyGreenScreenKey(to image: CIImage) -> CIImage {
+        chromaKeyKernel?.apply(extent: image.extent, arguments: [image]) ?? image
     }
 
     func playTemporaryAction(_ action: PetAction, duration: CFTimeInterval) {
@@ -737,6 +871,46 @@ class WalkerCharacter {
         }
     }
 
+    // MARK: - Manual Positioning
+
+    func beginManualDrag() {
+        isManuallyPositioned = true
+        isWalking = false
+        isPaused = true
+        pauseEndTime = .greatestFiniteMagnitude
+        scheduleNextIdleHappy(from: CACurrentMediaTime(), soon: true)
+        setAction(.idle, shouldPlay: true)
+    }
+
+    func endManualDrag() {
+        isManuallyPositioned = true
+        updatePopoverPosition()
+        updateThinkingBubble()
+    }
+
+    func returnToDesktopBottom() {
+        guard let screen = controller?.activeScreen ?? NSScreen.main else { return }
+
+        isManuallyPositioned = false
+        isWalking = false
+        isPaused = true
+        let now = CACurrentMediaTime()
+        pauseEndTime = now + Double.random(in: 1.0...3.0)
+        scheduleNextIdleHappy(from: now, soon: true)
+
+        let dockTopY = screen.visibleFrame.origin.y
+        let bottomPadding = displayHeight * 0.15
+        let y = dockTopY - bottomPadding + yOffset
+        let travelDistance = max((controller?.dockIconArea(on: screen).width ?? screen.visibleFrame.width) - displayWidth, 0)
+        let dockX = controller?.dockIconArea(on: screen).x ?? screen.visibleFrame.minX
+        let x = dockX + travelDistance * positionProgress + currentFlipCompensation
+
+        window.setFrameOrigin(NSPoint(x: x, y: y))
+        setAction(.idle, shouldPlay: true, restart: true)
+        updatePopoverPosition()
+        updateThinkingBubble()
+    }
+
     private func hideBubble() {
         if thinkingBubbleWindow?.isVisible ?? false {
             thinkingBubbleWindow?.orderOut(nil)
@@ -952,8 +1126,46 @@ class WalkerCharacter {
         isWalking = false
         isPaused = true
         setAction(.idle, shouldPlay: true, restart: true)
-        let delay = Double.random(in: 5.0...12.0)
-        pauseEndTime = CACurrentMediaTime() + delay
+        let delay = Double.random(in: 4.0...8.0)
+        let now = CACurrentMediaTime()
+        pauseEndTime = now + delay
+        scheduleNextIdleHappy(from: now, soon: true)
+    }
+
+    private func scheduleNextIdleHappy(from now: CFTimeInterval, soon: Bool = false) {
+        let range: ClosedRange<Double> = soon ? 2.0...5.0 : 6.0...14.0
+        nextIdleHappyTime = now + Double.random(in: range)
+    }
+
+    private func maybePlayIdleHappy(now: CFTimeInterval) {
+        guard isManuallyVisible, environmentHiddenAt == nil else { return }
+        guard isPaused, !isWalking, !isIdleForPopover, !isAgentBusy, !showingCompletion else { return }
+        guard temporaryActionEndTime == 0, now >= nextIdleHappyTime else { return }
+
+        scheduleNextIdleHappy(from: now)
+        chooseNextIdleAction(now: now)
+    }
+
+    private func chooseNextIdleAction(now: CFTimeInterval) {
+        guard temporaryActionEndTime == 0 else {
+            pauseEndTime = temporaryActionEndTime + 0.4
+            return
+        }
+
+        switch PetAction.allCases.randomElement() ?? .idle {
+        case .idle:
+            setAction(.idle, shouldPlay: true, restart: true)
+            pauseEndTime = now + Double.random(in: 2.0...5.0)
+            scheduleNextIdleHappy(from: now, soon: true)
+        case .run:
+            startWalk()
+        case .happy:
+            playTemporaryAction(.happy, duration: 3.0)
+            pauseEndTime = now + 3.4
+        case .rest:
+            playTemporaryAction(.rest, duration: 3.0)
+            pauseEndTime = now + 3.4
+        }
     }
 
     func updateFlip() {
@@ -1000,9 +1212,17 @@ class WalkerCharacter {
     // MARK: - Frame Update
 
     func update(dockX: CGFloat, dockWidth: CGFloat, dockTopY: CGFloat) {
-        restoreTemporaryActionIfNeeded()
+        let now = CACurrentMediaTime()
+        restoreTemporaryActionIfNeeded(now: now)
 
         currentTravelDistance = max(dockWidth - displayWidth, 0)
+        if isManuallyPositioned {
+            maybePlayIdleHappy(now: now)
+            updatePopoverPosition()
+            updateThinkingBubble()
+            return
+        }
+
         if isIdleForPopover {
             let travelDistance = currentTravelDistance
             let x = dockX + travelDistance * positionProgress + currentFlipCompensation
@@ -1014,12 +1234,22 @@ class WalkerCharacter {
             return
         }
 
-        let now = CACurrentMediaTime()
-
         if isPaused {
             if now >= pauseEndTime {
-                startWalk()
+                chooseNextIdleAction(now: now)
+                if !isPaused {
+                    // The random choice started a run; let the walking branch below move it.
+                } else {
+                    let travelDistance = max(dockWidth - displayWidth, 0)
+                    let x = dockX + travelDistance * positionProgress + currentFlipCompensation
+                    let bottomPadding = displayHeight * 0.15
+                    let y = dockTopY - bottomPadding + yOffset
+                    window.setFrameOrigin(NSPoint(x: x, y: y))
+                    updateThinkingBubble()
+                    return
+                }
             } else {
+                maybePlayIdleHappy(now: now)
                 let travelDistance = max(dockWidth - displayWidth, 0)
                 let x = dockX + travelDistance * positionProgress + currentFlipCompensation
                 let bottomPadding = displayHeight * 0.15
