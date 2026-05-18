@@ -9,19 +9,19 @@ const generationStyles = [
     id: 'cartoon-pet',
     title: '卡通版宠物',
     text: '适合生成可爱的桌面伙伴和贴纸感动画。',
-    video: '/卡通宠物.mov',
+    video: '/卡通宠物.mp4',
   },
   {
     id: 'real-pet',
     title: '真实版宠物',
     text: '尽量保留原宠物照片里的细节和神态。',
-    video: '/真实宠物.mov',
+    video: '/真实宠物.mp4',
   },
   {
     id: 'cartoon-portrait',
     title: '卡通版人像',
     text: '把照片生成拟人化、头像风格的桌面伙伴。',
-    video: '/卡通人物.mov',
+    video: '/卡通人物.mp4',
   },
 ];
 
@@ -211,7 +211,7 @@ function App() {
                 loop
                 muted
                 playsInline
-                src="/cover.mov?v=20260506222023"
+                src="/cover.mp4?v=20260518222023"
               />
             </div>
             <div className="floating-note note-chat">
