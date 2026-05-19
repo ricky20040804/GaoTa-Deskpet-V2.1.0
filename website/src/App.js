@@ -223,7 +223,7 @@ function App() {
                 onClick={() => setIsTutorialOpen(true)}
                 type="button"
               >
-                <span className="hero-action-title">查看教程</span>
+                <span className="hero-action-title">下载问题-查看教程</span>
                 <span className="hero-action-subtitle">View Tutorial</span>
               </button>
             </div>
