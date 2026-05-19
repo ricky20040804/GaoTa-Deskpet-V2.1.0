@@ -14,6 +14,11 @@ contextBridge.exposeInMainWorld('deskpet', {
     ipcRenderer.on('pet:reload', listener);
     return () => ipcRenderer.removeListener('pet:reload', listener);
   },
+  onPlayAction: (callback) => {
+    const listener = (_event, action) => callback(action);
+    ipcRenderer.on('pet:play-action', listener);
+    return () => ipcRenderer.removeListener('pet:play-action', listener);
+  },
   onSizeChanged: (callback) => {
     const listener = (_event, pixels) => callback(pixels);
     ipcRenderer.on('pet:size-changed', listener);

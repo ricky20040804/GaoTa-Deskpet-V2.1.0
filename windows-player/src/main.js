@@ -14,6 +14,8 @@ let mainWindow = null;
 let tray = null;
 let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
+let resourceWatchers = [];
+let reloadDebounce = null;
 
 function getSettingsPath() {
   return path.join(app.getPath('userData'), 'settings.json');
@@ -75,6 +77,54 @@ function loadPetVideos() {
     videos,
     missingActions: ACTIONS.filter((action) => !videos[action])
   };
+}
+
+function actionLabel(action) {
+  return {
+    idle: '待机',
+    run: '走动',
+    happy: '开心',
+    rest: '趴着'
+  }[action] || action;
+}
+
+function sendReloadToRenderer() {
+  mainWindow?.webContents.send('pet:reload');
+}
+
+function scheduleResourceReload() {
+  clearTimeout(reloadDebounce);
+  reloadDebounce = setTimeout(() => {
+    watchResourceLocations();
+    sendReloadToRenderer();
+  }, 350);
+}
+
+function closeResourceWatchers() {
+  for (const watcher of resourceWatchers) {
+    watcher.close();
+  }
+  resourceWatchers = [];
+}
+
+function watchResourceLocations() {
+  closeResourceWatchers();
+
+  const watched = new Set();
+  const addWatcher = (directory) => {
+    if (!directory || watched.has(directory) || !fs.existsSync(directory)) return;
+    watched.add(directory);
+    try {
+      resourceWatchers.push(fs.watch(directory, scheduleResourceReload));
+    } catch {
+      // Some synced/download folders can reject file watchers. Manual reload still works.
+    }
+  };
+
+  addWatcher(app.getPath('downloads'));
+  for (const directory of getCandidatePetDirs()) {
+    addWatcher(directory);
+  }
 }
 
 function clampWindowToDisplay(x, y, bounds) {
@@ -171,10 +221,32 @@ function createWindow() {
 
 function showContextMenu() {
   const settings = loadSettings();
+  const petLibrary = loadPetVideos();
+  const missingLabel = petLibrary.missingActions.map(actionLabel).join('、') || '无';
   const menu = Menu.buildFromTemplate([
     {
+      label: `当前资源: ${petLibrary.customPetDir}`,
+      enabled: false
+    },
+    {
+      label: `缺失动作: ${missingLabel}`,
+      enabled: false
+    },
+    { type: 'separator' },
+    {
       label: '重新读取 custompet',
-      click: () => mainWindow?.webContents.send('pet:reload')
+      click: () => {
+        watchResourceLocations();
+        sendReloadToRenderer();
+      }
+    },
+    {
+      label: '播放动作',
+      submenu: ACTIONS.map((action) => ({
+        label: actionLabel(action),
+        enabled: Boolean(petLibrary.videos[action]),
+        click: () => mainWindow?.webContents.send('pet:play-action', action)
+      }))
     },
     {
       label: mainWindow?.isVisible() ? '隐藏桌宠' : '显示桌宠',
@@ -200,6 +272,11 @@ function showContextMenu() {
       }))
     },
     {
+      label: '打开当前资源文件夹',
+      enabled: fs.existsSync(petLibrary.customPetDir),
+      click: () => shell.openPath(petLibrary.customPetDir)
+    },
+    {
       label: '打开下载文件夹',
       click: () => shell.openPath(app.getPath('downloads'))
     },
@@ -215,6 +292,7 @@ function showContextMenu() {
 app.whenReady().then(() => {
   createWindow();
   createTray();
+  watchResourceLocations();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -224,10 +302,13 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  closeResourceWatchers();
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
+
+app.on('before-quit', closeResourceWatchers);
 
 ipcMain.handle('pet:get-videos', () => loadPetVideos());
 ipcMain.handle('pet:return-bottom', () => moveToDesktopBottom());

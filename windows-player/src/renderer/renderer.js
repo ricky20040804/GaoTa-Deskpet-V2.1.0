@@ -185,6 +185,11 @@ canvas.addEventListener('pointerup', (event) => {
 });
 
 window.deskpet.onReload(reloadPetVideos);
+window.deskpet.onPlayAction((action) => {
+  if (ACTIONS.includes(action) && videos[action]) {
+    playAction(action);
+  }
+});
 window.deskpet.onSizeChanged((pixels) => resizeCanvas(pixels));
 window.addEventListener('beforeunload', () => {
   window.clearTimeout(idleTimer);
