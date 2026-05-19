@@ -1,0 +1,38 @@
+{
+  "name": "gaota-deskpet-windows-player",
+  "version": "0.1.0",
+  "description": "Windows desktop player for GaoTa Deskpet custompet video packages.",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --win portable",
+    "dist": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "cn.gaotadeskpet.windows",
+    "productName": "GaoTa Deskpet",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ],
+      "artifactName": "GaoTa-Deskpet-Windows-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  }
+}

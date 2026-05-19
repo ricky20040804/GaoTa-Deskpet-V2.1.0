@@ -21,6 +21,12 @@ xcuserdata/
 *.dSYM.zip
 *.dSYM
 
+# Node / Electron
+node_modules/
+dist/
+windows-player/dist/
+windows-player/node_modules/
+
 # Sparkle
 *.dmg
 *.zip
