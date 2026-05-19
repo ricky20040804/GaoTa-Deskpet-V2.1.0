@@ -2116,15 +2116,27 @@ main > .download-section:first-child {
   background: rgba(255, 253, 249, 0.76);
   border: 1px solid rgba(142, 102, 68, 0.22);
   border-radius: 1.15rem;
+  cursor: pointer;
   min-height: 240px;
   padding: 2rem 1.45rem 1.45rem;
   position: relative;
   text-align: center;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
 .generation-plan-card.is-recommended {
-  border-color: #c8743c;
-  box-shadow: inset 0 0 0 2px #c8743c;
+  padding-top: 2.2rem;
+}
+
+.generation-plan-card.is-selected {
+  border-color: var(--blue);
+  box-shadow: inset 0 0 0 2px var(--blue), 0 22px 42px rgba(62, 132, 255, 0.14);
+}
+
+.generation-plan-card:hover {
+  border-color: rgba(62, 132, 255, 0.8);
+  box-shadow: 0 24px 48px rgba(62, 132, 255, 0.16);
+  transform: translateY(-6px) scale(1.025);
 }
 
 .recommended-badge {
@@ -2163,6 +2175,14 @@ main > .download-section:first-child {
   margin-top: 1.1rem;
   min-height: 3.2rem;
   width: 100%;
+}
+
+.generation-plan-card:hover .plan-action-button,
+.generation-plan-card.is-selected .plan-action-button {
+  background: linear-gradient(135deg, var(--violet), var(--blue));
+  border-color: transparent;
+  box-shadow: 0 16px 30px rgba(82, 89, 236, 0.28);
+  color: #fff;
 }
 
 .tutorial-overlay {

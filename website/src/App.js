@@ -27,20 +27,23 @@ const generationStyles = [
 
 const generationPlans = [
   {
-    title: '卡通基础包',
+    id: 'pet-package',
+    title: '专属宠物包',
     price: '¥9.9',
-    text: '卡通版宠物或卡通版人像。',
-  },
-  {
-    title: '真实宠物包',
-    price: '¥19.7',
-    text: '真实版宠物生成资源包。',
+    text: '卡通版宠物或真实版宠物资源包。',
     isRecommended: true,
   },
   {
-    title: '完整源码包',
-    price: '¥--',
-    text: '真实版宠物、卡通版宠物或卡通版人像，加源代码与思路讲解。',
+    id: 'complete-package',
+    title: '全套完整包',
+    price: '¥19.7',
+    text: '真实版宠物、卡通版宠物或卡通版人像，并附带网页代码，联系客服，教你如何从0设计你的专属宠物网站。',
+  },
+  {
+    id: 'portrait-package',
+    title: '卡通人像包',
+    price: '¥19.7',
+    text: '卡通版人像生成资源包。',
   },
 ];
 
@@ -59,6 +62,7 @@ function App() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isRunnerDownloadOpen, setIsRunnerDownloadOpen] = useState(false);
   const [selectedGenerationStyle, setSelectedGenerationStyle] = useState(generationStyles[0].id);
+  const [selectedPlan, setSelectedPlan] = useState(generationPlans[0].id);
   const [petPhoto, setPetPhoto] = useState(null);
   const [petPhotoPreview, setPetPhotoPreview] = useState('');
   const [generationStatus, setGenerationStatus] = useState('idle');
@@ -179,12 +183,17 @@ function App() {
     }
   };
 
+  const handlePlanAction = (planId) => {
+    setSelectedPlan(planId);
+    document.getElementById('create-pet')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   return (
     <div className="site-shell">
       <nav className="navbar" aria-label="Primary navigation">
-        <a className="brand" href="#home" aria-label="AI Desktop Pet home">
+        <a className="brand" href="#home" aria-label="GaoTa Desktop Pet home">
           <img className="brand-mark" src="/logo192.png" alt="" />
-          AI Desktop Pet
+          GaoTa Desktop Pet
         </a>
         <div className="nav-links">
           <a href="#home">Home</a>
@@ -196,9 +205,13 @@ function App() {
         <section className="hero section-grid" id="home">
           <div className="hero-copy">
             <p className="eyebrow">AI companion for macOS</p>
-            <h1>Your AI Desktop Pet Companion</h1>
+            <h1>高塔AI
+                桌面宠物伙伴<br />
+                正式上线！</h1>
             <p className="hero-subtitle">
-              A cute desktop companion that can chat, react, and stay with you while you work.
+              不管你的宠物现在在哪里，都可以在你的电脑桌面上陪着你啦！<br />
+              支持Claudecode，Codex，Copilot，Gemini，OpenClaw，豆包等多种ai介入，让你的桌面宠物成为你的有温度的精神伴侣！<br />
+              还在觉得常规桌面宠物卡顿，耗费token，部署困难吗，更加便利的桌面宠物来啦！只需要导入一张图片，就能生成独属于你家的专属宠物哟！
             </p>
             <div className="hero-actions">
               <a className="button button-primary" href="#download">
@@ -370,13 +383,24 @@ function App() {
 
           <div className="generation-plan-grid">
             {generationPlans.map((plan) => (
-              <article className={`generation-plan-card${plan.isRecommended ? ' is-recommended' : ''}`} key={plan.title}>
+              <article
+                className={`generation-plan-card${plan.isRecommended ? ' is-recommended' : ''}${selectedPlan === plan.id ? ' is-selected' : ''}`}
+                key={plan.id}
+                onClick={() => setSelectedPlan(plan.id)}
+              >
                 {plan.isRecommended && <span className="recommended-badge">推荐</span>}
                 <h3>{plan.title}</h3>
                 <p className="plan-price">{plan.price}</p>
                 <p>{plan.text}</p>
-                <button className={plan.isRecommended ? 'button button-primary' : 'button button-secondary'} type="button">
-                  暂未开放
+                <button
+                  className="button button-secondary plan-action-button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handlePlanAction(plan.id);
+                  }}
+                  type="button"
+                >
+                  先去制作宠物再收费
                 </button>
               </article>
             ))}
@@ -484,8 +508,8 @@ function App() {
       )}
 
       <footer className="footer">
-        <span>AI Desktop Pet</span>
-        <span>Copyright 2026 AI Desktop Pet. All rights reserved.</span>
+        <span>GaoTa Desktop Pet</span>
+        <span>Copyright 2026 GaoTa Desktop Pet. All rights reserved.</span>
       </footer>
     </div>
   );
