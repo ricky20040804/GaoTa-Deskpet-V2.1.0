@@ -16,7 +16,7 @@ body {
   height: 100vh;
   position: relative;
   width: 100vw;
-  --pet-size: 320px;
+  --pet-size: 200px;
 }
 
 #petVideo {

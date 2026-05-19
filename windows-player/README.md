@@ -14,6 +14,7 @@ Windows desktop pet player for `custompet` resource packages.
 - Automatically reloads when the `custompet` folder changes.
 - Click the pet or use the right-click menu to open the Doubao chat panel.
 - Doubao API settings match the macOS app: Base URL, API Key, Endpoint / Model, and System Prompt.
+- Pet size presets match the macOS app: large 200px, medium 150px, small 100px.
 
 ## Development
 

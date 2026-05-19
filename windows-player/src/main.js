@@ -5,9 +5,9 @@ const path = require('path');
 const ACTIONS = ['idle', 'run', 'happy', 'rest'];
 const BOTTOM_MARGIN = 16;
 const SIZE_PRESETS = {
-  large: { label: '大', pixels: 320 },
-  medium: { label: '中', pixels: 240 },
-  small: { label: '小', pixels: 180 }
+  large: { label: '大', pixels: 200 },
+  medium: { label: '中', pixels: 150 },
+  small: { label: '小', pixels: 100 }
 };
 const CHAT_WINDOW = {
   width: 430,
