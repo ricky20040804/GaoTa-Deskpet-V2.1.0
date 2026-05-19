@@ -1,33 +1,44 @@
 const ACTIONS = ['idle', 'run', 'happy', 'rest'];
-const CANVAS_SIZE = 420;
 const GREEN_KEY = {
-  minG: 120,
-  greenOverRed: 35,
-  greenOverBlue: 35,
-  softness: 42
+  minG: 105,
+  greenOverRed: 30,
+  greenOverBlue: 30,
+  softness: 34
 };
+const IDLE_DELAY_RANGE = [6000, 14000];
+const SOON_DELAY_RANGE = [2000, 5000];
 
 const video = document.getElementById('petVideo');
 const canvas = document.getElementById('petCanvas');
 const context = canvas.getContext('2d', { willReadFrequently: true });
 const emptyState = document.getElementById('emptyState');
 const offscreen = document.createElement('canvas');
-offscreen.width = CANVAS_SIZE;
-offscreen.height = CANVAS_SIZE;
 const offscreenContext = offscreen.getContext('2d', { willReadFrequently: true });
 
 let videos = {};
 let currentAction = 'idle';
+let canvasSize = 320;
 let animationFrame = 0;
 let idleTimer = 0;
+let reloadTimer = 0;
 let dragging = false;
 let dragMoved = false;
 let runDirection = 1;
-let runX = 0;
+let runStartedAt = 0;
+let runDuration = 3200;
+let lastWalkProgress = 0;
 
 function fileUrl(filePath) {
   const normalized = filePath.replace(/\\/g, '/').replace(/^([A-Za-z]):/, '/$1:');
   return encodeURI(`file://${normalized}`);
+}
+
+function resizeCanvas(pixels) {
+  canvasSize = pixels || window.innerWidth || 320;
+  canvas.width = canvasSize;
+  canvas.height = canvasSize;
+  offscreen.width = canvasSize;
+  offscreen.height = canvasSize;
 }
 
 function chooseAction() {
@@ -36,11 +47,20 @@ function chooseAction() {
   return available[Math.floor(Math.random() * available.length)];
 }
 
-function scheduleNextIdleAction() {
+function randomRange([min, max]) {
+  return min + Math.random() * (max - min);
+}
+
+function scheduleNextIdleAction(soon = false) {
   window.clearTimeout(idleTimer);
   idleTimer = window.setTimeout(() => {
     playAction(chooseAction() || 'idle');
-  }, 600 + Math.random() * 900);
+  }, randomRange(soon ? SOON_DELAY_RANGE : IDLE_DELAY_RANGE));
+}
+
+function easeInOut(progress) {
+  const value = Math.max(0, Math.min(1, progress));
+  return value < 0.5 ? 2 * value * value : 1 - Math.pow(-2 * value + 2, 2) / 2;
 }
 
 function playAction(action) {
@@ -56,9 +76,9 @@ function playAction(action) {
 
   if (action === 'run') {
     runDirection = Math.random() > 0.5 ? 1 : -1;
-    runX = runDirection > 0 ? -34 : 34;
-  } else {
-    runX = 0;
+    runStartedAt = performance.now();
+    lastWalkProgress = 0;
+    runDuration = Math.max(2400, Math.min(4200, (video.duration || 3.2) * 1000));
   }
 }
 
@@ -79,23 +99,32 @@ function keyGreen(imageData) {
 }
 
 function drawFrame() {
-  context.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+  context.clearRect(0, 0, canvasSize, canvasSize);
 
   if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-    offscreenContext.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    offscreenContext.drawImage(video, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    offscreenContext.clearRect(0, 0, canvasSize, canvasSize);
+    offscreenContext.drawImage(video, 0, 0, canvasSize, canvasSize);
 
-    const keyedFrame = keyGreen(offscreenContext.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE));
+    const keyedFrame = keyGreen(offscreenContext.getImageData(0, 0, canvasSize, canvasSize));
     offscreenContext.putImageData(keyedFrame, 0, 0);
 
     if (currentAction === 'run') {
-      runX += runDirection * 1.3;
-      if (Math.abs(runX) > 36) {
-        runDirection *= -1;
+      const elapsed = performance.now() - runStartedAt;
+      const progress = easeInOut(elapsed / runDuration);
+      const delta = (progress - lastWalkProgress) * 220 * runDirection;
+      if (Math.abs(delta) > 0.01) {
+        window.deskpet.moveBy(delta, 0);
       }
+      lastWalkProgress = progress;
     }
 
-    context.drawImage(offscreen, runX, 0, CANVAS_SIZE, CANVAS_SIZE);
+    context.save();
+    if (currentAction === 'run' && runDirection > 0) {
+      context.translate(canvasSize, 0);
+      context.scale(-1, 1);
+    }
+    context.drawImage(offscreen, 0, 0, canvasSize, canvasSize);
+    context.restore();
   }
 
   animationFrame = window.requestAnimationFrame(drawFrame);
@@ -109,16 +138,19 @@ async function reloadPetVideos() {
 
   if (hasVideos) {
     playAction(videos.idle ? 'idle' : chooseAction());
+    scheduleNextIdleAction(true);
   } else {
     window.clearTimeout(idleTimer);
-    context.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    context.clearRect(0, 0, canvasSize, canvasSize);
     video.removeAttribute('src');
     video.load();
+    window.clearTimeout(reloadTimer);
+    reloadTimer = window.setTimeout(reloadPetVideos, 2500);
   }
 }
 
-video.addEventListener('ended', scheduleNextIdleAction);
-video.addEventListener('error', scheduleNextIdleAction);
+video.addEventListener('ended', () => scheduleNextIdleAction());
+video.addEventListener('error', () => scheduleNextIdleAction(true));
 
 canvas.addEventListener('contextmenu', (event) => {
   event.preventDefault();
@@ -147,11 +179,21 @@ canvas.addEventListener('pointerup', (event) => {
 
   if (!dragMoved && videos.happy) {
     playAction('happy');
+  } else if (dragMoved) {
+    scheduleNextIdleAction(true);
   }
 });
 
 window.deskpet.onReload(reloadPetVideos);
-window.addEventListener('beforeunload', () => window.cancelAnimationFrame(animationFrame));
+window.deskpet.onSizeChanged((pixels) => resizeCanvas(pixels));
+window.addEventListener('beforeunload', () => {
+  window.clearTimeout(idleTimer);
+  window.clearTimeout(reloadTimer);
+  window.cancelAnimationFrame(animationFrame);
+});
 
-reloadPetVideos();
-drawFrame();
+window.deskpet.getSize().then((pixels) => {
+  resizeCanvas(pixels);
+  reloadPetVideos();
+  drawFrame();
+});

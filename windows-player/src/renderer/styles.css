@@ -9,9 +9,9 @@ body {
 }
 
 #app {
-  height: 420px;
+  height: 100vh;
   position: relative;
-  width: 420px;
+  width: 100vw;
 }
 
 #petVideo {
@@ -26,8 +26,8 @@ body {
 #petCanvas {
   cursor: grab;
   display: block;
-  height: 420px;
-  width: 420px;
+  height: 100vh;
+  width: 100vw;
 }
 
 #petCanvas:active {
