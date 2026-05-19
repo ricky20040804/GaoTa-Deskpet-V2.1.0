@@ -58,6 +58,39 @@ const generationProgressMessages = [
   '正在打包 custompet.zip...'
 ];
 
+const tutorialSteps = [
+  {
+    title: '如果你遇到了这个问题',
+    image: '/查看教程/出现问题.png',
+    alt: 'macOS 提示无法打开应用的问题截图',
+  },
+  {
+    title: '第一步打开设置',
+    image: '/查看教程/第一步.png',
+    alt: '打开系统设置的截图',
+  },
+  {
+    title: '第二步向下滑动找到隐私与安全性',
+    image: '/查看教程/第二步.png',
+    alt: '在系统设置中找到隐私与安全性的截图',
+  },
+  {
+    title: '第三步在隐私与安全性中向下滑动并选择仍要打开',
+    image: '/查看教程/第三步.png',
+    alt: '在隐私与安全性中选择仍要打开的截图',
+  },
+  {
+    title: '第四步选择仍要打开',
+    image: '/查看教程/第四步.png',
+    alt: '确认仍要打开应用的截图',
+  },
+  {
+    title: '第五步然后就成功运行啦',
+    image: '/查看教程/第五步.png',
+    alt: '桌面宠物成功运行的截图',
+  },
+];
+
 function App() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isRunnerDownloadOpen, setIsRunnerDownloadOpen] = useState(false);
@@ -428,44 +461,17 @@ function App() {
 
             <div className="tutorial-intro">
               <p className="eyebrow">Tutorial</p>
-              <h2>创建你的专属桌面宠物</h2>
-              <p>
-                先下载运行器，再选择生成风格并导出
-                <strong> custompet.zip </strong>
-                宠物数据包；运行器 App 会读取这个数据包并把宠物显示在桌面上。
-              </p>
+              <h2>下载问题-查看教程</h2>
             </div>
 
-            <div className="tutorial-grid">
-              <article className="tutorial-card tutorial-card-primary">
-                <img
-                  className="tutorial-visual"
-                  src="/tutorial/cartoon-builder.svg"
-                  alt="Cartoon pet builder showing drawing canvas, part picker, and save flow"
-                />
-                <span className="tutorial-step">01</span>
-                <h3>上传照片</h3>
-                <ol>
-                  <li>在“创建你的桌面宠物”区域上传宠物照片。</li>
-                  <li>选择卡通版宠物、真实版宠物或卡通版人像。</li>
-                  <li>点击生成宠物资源包。</li>
-                </ol>
-              </article>
-
-              <article className="tutorial-card">
-                <img
-                  className="tutorial-visual"
-                  src="/tutorial/start-creating.svg"
-                  alt="Start creating flow from homepage to custom pet export"
-                />
-                <span className="tutorial-step">02</span>
-                <h3>导入运行器</h3>
-                <ol>
-                  <li>下载 macOS 或 Windows 运行器。</li>
-                  <li>把生成的 custompet.zip 放在“下载”文件夹里解压。</li>
-                  <li>确认出现 Downloads/custompet 文件夹，再打开运行器。</li>
-                </ol>
-              </article>
+            <div className="tutorial-steps">
+              {tutorialSteps.map((step, index) => (
+                <article className="tutorial-card" key={step.title}>
+                  <span className="tutorial-step">{String(index + 1).padStart(2, '0')}</span>
+                  <h3>{step.title}</h3>
+                  <img className="tutorial-visual" src={step.image} alt={step.alt} />
+                </article>
+              ))}
             </div>
           </section>
         </div>
