@@ -30,25 +30,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Menu Bar
 
     func setupMenuBar() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        if statusItem == nil {
+            statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        }
         if let button = statusItem?.button {
-            button.image = NSImage(named: "MenuBarIcon") ?? NSImage(systemSymbolName: "figure.walk", accessibilityDescription: "lil agents")
+            let menuIcon = NSImage(named: "MenuBarIcon") ?? NSImage(systemSymbolName: "figure.walk", accessibilityDescription: "GaoTa Deskpet")
+            menuIcon?.isTemplate = false
+            button.image = menuIcon
         }
 
         let menu = NSMenu()
 
-        let char1Item = NSMenuItem(title: "Custom Pet", action: #selector(toggleChar1), keyEquivalent: "1")
+        let char1Item = NSMenuItem(title: "显示桌宠", action: #selector(toggleChar1), keyEquivalent: "1")
         char1Item.state = .on
         menu.addItem(char1Item)
 
+        let returnToBottomItem = NSMenuItem(title: "回到桌面底部", action: #selector(returnPetToDesktopBottom), keyEquivalent: "")
+        menu.addItem(returnToBottomItem)
+
         menu.addItem(NSMenuItem.separator())
 
-        let soundItem = NSMenuItem(title: "Sounds", action: #selector(toggleSounds(_:)), keyEquivalent: "")
+        let soundItem = NSMenuItem(title: "声音", action: #selector(toggleSounds(_:)), keyEquivalent: "")
         soundItem.state = .on
         menu.addItem(soundItem)
 
         // Provider submenu (applies to all characters)
-        let providerItem = NSMenuItem(title: "Provider", action: nil, keyEquivalent: "")
+        let providerItem = NSMenuItem(title: "AI 服务", action: nil, keyEquivalent: "")
         let providerMenu = NSMenu()
         let currentProvider = controller?.characters.first?.provider ?? .claude
         for (i, provider) in AgentProvider.allCases.enumerated() {
@@ -61,15 +68,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             providerMenu.addItem(item)
         }
         providerMenu.addItem(NSMenuItem.separator())
-        let gatewayItem = NSMenuItem(title: "Advanced Settings\u{2026}", action: #selector(openGatewaySettings), keyEquivalent: "")
+        let gatewayItem = NSMenuItem(title: "高级设置…", action: #selector(openGatewaySettings), keyEquivalent: "")
         gatewayItem.tag = -1
         providerMenu.addItem(gatewayItem)
 
         providerItem.submenu = providerMenu
         menu.addItem(providerItem)
 
+        let doubaoSettingsItem = NSMenuItem(title: "豆包 API 设置…", action: #selector(openDoubaoSettings), keyEquivalent: "")
+        menu.addItem(doubaoSettingsItem)
+
         // Size submenu (applies to all characters)
-        let sizeItem = NSMenuItem(title: "Size", action: nil, keyEquivalent: "")
+        let sizeItem = NSMenuItem(title: "大小", action: nil, keyEquivalent: "")
         let sizeMenu = NSMenu()
         let currentSize = controller?.characters.first?.size ?? .large
         for (i, size) in CharacterSize.allCases.enumerated() {
@@ -82,10 +92,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(sizeItem)
 
         // Theme submenu
-        let themeItem = NSMenuItem(title: "Style", action: nil, keyEquivalent: "")
+        let themeItem = NSMenuItem(title: "样式", action: nil, keyEquivalent: "")
         let themeMenu = NSMenu()
         for (i, theme) in PopoverTheme.allThemes.enumerated() {
-            let item = NSMenuItem(title: theme.name, action: #selector(switchTheme(_:)), keyEquivalent: "")
+            let item = NSMenuItem(title: theme.displayName, action: #selector(switchTheme(_:)), keyEquivalent: "")
             item.tag = i
             item.state = theme.name == PopoverTheme.current.name ? .on : .off
             themeMenu.addItem(item)
@@ -94,10 +104,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(themeItem)
 
         // Display submenu
-        let displayItem = NSMenuItem(title: "Display", action: nil, keyEquivalent: "")
+        let displayItem = NSMenuItem(title: "显示器", action: nil, keyEquivalent: "")
         let displayMenu = NSMenu()
         displayMenu.delegate = self
-        let autoItem = NSMenuItem(title: "Auto (Main Display)", action: #selector(switchDisplay(_:)), keyEquivalent: "")
+        let autoItem = NSMenuItem(title: "自动（主显示器）", action: #selector(switchDisplay(_:)), keyEquivalent: "")
         autoItem.tag = -1
         autoItem.state = .on
         displayMenu.addItem(autoItem)
@@ -114,13 +124,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        let updateItem = NSMenuItem(title: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
+        let updateItem = NSMenuItem(title: "检查更新…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
         updateItem.target = updaterController
         menu.addItem(updateItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        let quitItem = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "退出", action: #selector(quitApp), keyEquivalent: "q")
         menu.addItem(quitItem)
 
         statusItem?.menu = menu
@@ -240,6 +250,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         sender.state = WalkerCharacter.soundsEnabled ? .on : .off
     }
 
+    @objc func returnPetToDesktopBottom() {
+        controller?.characters.forEach { $0.returnToDesktopBottom() }
+    }
+
     @objc func openGatewaySettings() {
         OpenClawSession.showSettingsPanel { [weak self] in
             // If OpenClaw is the active provider, reconnect with new settings
@@ -247,6 +261,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.controller?.characters.forEach { char in
                 char.session?.terminate()
                 char.session = nil
+            }
+        }
+    }
+
+    @objc func openDoubaoSettings() {
+        DoubaoSession.showSettingsPanel { [weak self] in
+            AgentProvider.detectAvailableProviders { [weak self] in
+                self?.controller?.characters.forEach { char in
+                    if char.provider == .doubao {
+                        char.session?.terminate()
+                        char.session = nil
+                        char.popoverWindow?.orderOut(nil)
+                        char.popoverWindow = nil
+                        char.terminalView = nil
+                        char.thinkingBubbleWindow?.orderOut(nil)
+                        char.thinkingBubbleWindow = nil
+                    }
+                }
+                self?.setupMenuBar()
             }
         }
     }

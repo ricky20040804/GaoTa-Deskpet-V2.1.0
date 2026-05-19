@@ -2,7 +2,7 @@ import AppKit
 
 class LilAgentsController {
     var characters: [WalkerCharacter] = []
-    private var displayLink: CVDisplayLink?
+    private var frameTimer: Timer?
     var debugWindow: NSWindow?
     var pinnedScreenIndex: Int = -1
     private static let onboardingKey = "hasCompletedOnboarding"
@@ -36,7 +36,7 @@ class LilAgentsController {
         characters.forEach { $0.controller = self }
 
         setupDebugLine()
-        startDisplayLink()
+        startFrameTimer()
 
         if !UserDefaults.standard.bool(forKey: Self.onboardingKey) {
             triggerOnboarding()
@@ -115,28 +115,24 @@ class LilAgentsController {
         return (dockX, dockWidth)
     }
 
+    func dockIconArea(on screen: NSScreen) -> (x: CGFloat, width: CGFloat) {
+        getDockIconArea(screenWidth: screen.frame.width)
+    }
+
     private func dockAutohideEnabled() -> Bool {
         let dockDefaults = UserDefaults(suiteName: "com.apple.dock")
         return dockDefaults?.bool(forKey: "autohide") ?? false
     }
 
-    // MARK: - Display Link
+    // MARK: - Frame Timer
 
-    private func startDisplayLink() {
-        CVDisplayLinkCreateWithActiveCGDisplays(&displayLink)
-        guard let displayLink = displayLink else { return }
-
-        let callback: CVDisplayLinkOutputCallback = { _, _, _, _, _, userInfo -> CVReturn in
-            let controller = Unmanaged<LilAgentsController>.fromOpaque(userInfo!).takeUnretainedValue()
-            DispatchQueue.main.async {
-                controller.tick()
-            }
-            return kCVReturnSuccess
+    private func startFrameTimer() {
+        frameTimer?.invalidate()
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            self?.tick()
         }
-
-        CVDisplayLinkSetOutputCallback(displayLink, callback,
-                                       Unmanaged.passUnretained(self).toOpaque())
-        CVDisplayLinkStart(displayLink)
+        RunLoop.main.add(timer, forMode: .common)
+        frameTimer = timer
     }
 
     var activeScreen: NSScreen? {
@@ -231,8 +227,6 @@ class LilAgentsController {
     }
 
     deinit {
-        if let displayLink = displayLink {
-            CVDisplayLinkStop(displayLink)
-        }
+        frameTimer?.invalidate()
     }
 }

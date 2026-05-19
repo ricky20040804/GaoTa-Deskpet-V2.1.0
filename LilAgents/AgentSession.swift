@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Provider
 
 enum AgentProvider: String, CaseIterable {
-    case claude, codex, copilot, gemini, opencode, openclaw
+    case claude, codex, copilot, gemini, opencode, openclaw, doubao
 
     private static let defaultsKey = "selectedProvider"
 
@@ -25,6 +25,7 @@ enum AgentProvider: String, CaseIterable {
         case .gemini:   return "Gemini"
         case .opencode: return "OpenCode"
         case .openclaw: return "OpenClaw"
+        case .doubao:   return "豆包"
         }
     }
 
@@ -49,6 +50,7 @@ enum AgentProvider: String, CaseIterable {
         case .gemini:   return "gemini"
         case .opencode: return "opencode"
         case .openclaw: return "openclaw"
+        case .doubao:   return "doubao"
         }
     }
 
@@ -60,9 +62,13 @@ enum AgentProvider: String, CaseIterable {
         let all = AgentProvider.allCases
         let group = DispatchGroup()
         for provider in all {
-            // OpenClaw is network-based, not a local binary
+            // OpenClaw and Doubao are network-based, not local binaries.
             if provider == .openclaw {
                 availability[provider] = OpenClawConfig.load().authToken.isEmpty == false
+                continue
+            }
+            if provider == .doubao {
+                availability[provider] = DoubaoConfig.load().isConfigured
                 continue
             }
             group.enter()
@@ -83,6 +89,7 @@ enum AgentProvider: String, CaseIterable {
 
     var isAvailable: Bool {
         if self == .openclaw { return OpenClawConfig.load().authToken.isEmpty == false }
+        if self == .doubao { return DoubaoConfig.load().isConfigured }
         return AgentProvider.availability[self] ?? false
     }
 
@@ -105,6 +112,8 @@ enum AgentProvider: String, CaseIterable {
             return "To install, run this in Terminal:\n  curl -fsSL https://opencode.ai/install | bash"
         case .openclaw:
             return "OpenClaw is a self-hosted AI gateway.\n\nInstall: npm install -g openclaw\nStart:   openclaw gateway run\n\nDocs: https://docs.openclaw.ai"
+        case .doubao:
+            return "Open the menu bar item 豆包 API 设置… and fill in Base URL, API Key, and Endpoint / Model."
         }
     }
 
@@ -116,6 +125,7 @@ enum AgentProvider: String, CaseIterable {
         case .gemini:   return GeminiSession()
         case .opencode: return OpenCodeSession()
         case .openclaw: return OpenClawSession()
+        case .doubao:   return DoubaoSession()
         }
     }
 }

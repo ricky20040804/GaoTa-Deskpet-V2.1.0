@@ -2,6 +2,15 @@ import AppKit
 
 struct PopoverTheme {
     let name: String
+    var displayName: String {
+        switch name {
+        case "Midnight": return "午夜"
+        case "Peach": return "桃子"
+        case "Cloud": return "云朵"
+        case "Moss": return "青苔"
+        default: return name
+        }
+    }
     // Popover
     let popoverBg: NSColor
     let popoverBorder: NSColor

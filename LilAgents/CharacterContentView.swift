@@ -7,6 +7,9 @@ class KeyableWindow: NSWindow {
 
 class CharacterContentView: NSView {
     weak var character: WalkerCharacter?
+    private var dragStartLocation: NSPoint?
+    private var dragStartFrameOrigin: NSPoint?
+    private var didDrag = false
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         let localPoint = convert(point, from: superview)
@@ -55,6 +58,47 @@ class CharacterContentView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        character?.handleClick()
+        dragStartLocation = NSEvent.mouseLocation
+        dragStartFrameOrigin = window?.frame.origin
+        didDrag = false
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let character,
+              let window,
+              let dragStartLocation,
+              let dragStartFrameOrigin else { return }
+
+        let currentLocation = NSEvent.mouseLocation
+        let dx = currentLocation.x - dragStartLocation.x
+        let dy = currentLocation.y - dragStartLocation.y
+
+        if !didDrag, abs(dx) + abs(dy) > 3 {
+            didDrag = true
+            character.beginManualDrag()
+        }
+
+        guard didDrag else { return }
+
+        window.setFrameOrigin(NSPoint(
+            x: dragStartFrameOrigin.x + dx,
+            y: dragStartFrameOrigin.y + dy
+        ))
+        character.updatePopoverPosition()
+        character.updateThinkingBubble()
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        defer {
+            dragStartLocation = nil
+            dragStartFrameOrigin = nil
+            didDrag = false
+        }
+
+        if didDrag {
+            character?.endManualDrag()
+        } else {
+            character?.handleClick()
+        }
     }
 }

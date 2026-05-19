@@ -26,6 +26,7 @@
 		A10000010000000000000037 /* DockVisibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000036 /* DockVisibility.swift */; };
 		A10000010000000000000038 /* OpenClawSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000037 /* OpenClawSession.swift */; };
 		A10000010000000000000039 /* PetVideoLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000038 /* PetVideoLibrary.swift */; };
+		A10000010000000000000040 /* DoubaoSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000039 /* DoubaoSession.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,7 +50,8 @@
 		A10000020000000000000036 /* DockVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockVisibility.swift; sourceTree = "<group>"; };
 		A10000020000000000000037 /* OpenClawSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenClawSession.swift; sourceTree = "<group>"; };
 		A10000020000000000000038 /* PetVideoLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetVideoLibrary.swift; sourceTree = "<group>"; };
-		A10000030000000000000001 /* lil agents.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "lil agents.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000020000000000000039 /* DoubaoSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubaoSession.swift; sourceTree = "<group>"; };
+		A10000030000000000000001 /* GaoTa Deskpet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GaoTa Deskpet.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,6 +88,7 @@
 				A10000020000000000000034 /* GeminiSession.swift */,
 				A10000020000000000000035 /* OpenCodeSession.swift */,
 				A10000020000000000000037 /* OpenClawSession.swift */,
+				A10000020000000000000039 /* DoubaoSession.swift */,
 				A10000020000000000000036 /* DockVisibility.swift */,
 				A10000020000000000000038 /* PetVideoLibrary.swift */,
 				A10000020000000000000023 /* TerminalView.swift */,
@@ -102,7 +105,7 @@
 		A10000050000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A10000030000000000000001 /* lil agents.app */,
+				A10000030000000000000001 /* GaoTa Deskpet.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -127,7 +130,7 @@
 				A1000000B000000000000002 /* Sparkle */,
 			);
 			productName = LilAgents;
-			productReference = A10000030000000000000001 /* lil agents.app */;
+			productReference = A10000030000000000000001 /* GaoTa Deskpet.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -195,6 +198,7 @@
 				A10000010000000000000036 /* OpenCodeSession.swift in Sources */,
 				A10000010000000000000037 /* DockVisibility.swift in Sources */,
 				A10000010000000000000038 /* OpenClawSession.swift in Sources */,
+				A10000010000000000000040 /* DoubaoSession.swift in Sources */,
 				A10000010000000000000039 /* PetVideoLibrary.swift in Sources */,
 				A10000010000000000000023 /* TerminalView.swift in Sources */,
 				A10000010000000000000024 /* WalkerCharacter.swift in Sources */,
@@ -323,7 +327,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LilAgents/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "lil agents";
+				INFOPLIST_KEY_CFBundleDisplayName = "GaoTa Deskpet";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSMainNibFile = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
@@ -333,7 +337,7 @@
 				);
 				MARKETING_VERSION = 1.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lilagents.app;
-				PRODUCT_NAME = "lil agents";
+				PRODUCT_NAME = "GaoTa Deskpet";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -351,7 +355,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LilAgents/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "lil agents";
+				INFOPLIST_KEY_CFBundleDisplayName = "GaoTa Deskpet";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSMainNibFile = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
@@ -362,7 +366,7 @@
 				MARKETING_VERSION = 1.2.2;
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lilagents.app;
-				PRODUCT_NAME = "lil agents";
+				PRODUCT_NAME = "GaoTa Deskpet";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
