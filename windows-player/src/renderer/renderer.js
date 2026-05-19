@@ -12,6 +12,22 @@ const video = document.getElementById('petVideo');
 const canvas = document.getElementById('petCanvas');
 const context = canvas.getContext('2d', { willReadFrequently: true });
 const emptyState = document.getElementById('emptyState');
+const appRoot = document.getElementById('app');
+const chatPanel = document.getElementById('chatPanel');
+const chatStatus = document.getElementById('chatStatus');
+const chatMessages = document.getElementById('chatMessages');
+const chatForm = document.getElementById('chatForm');
+const chatInput = document.getElementById('chatInput');
+const sendButton = document.getElementById('sendButton');
+const settingsButton = document.getElementById('settingsButton');
+const closeChatButton = document.getElementById('closeChatButton');
+const settingsPanel = document.getElementById('settingsPanel');
+const settingsForm = document.getElementById('settingsForm');
+const closeSettingsButton = document.getElementById('closeSettingsButton');
+const baseUrlInput = document.getElementById('baseUrlInput');
+const apiKeyInput = document.getElementById('apiKeyInput');
+const modelInput = document.getElementById('modelInput');
+const systemPromptInput = document.getElementById('systemPromptInput');
 const offscreen = document.createElement('canvas');
 const offscreenContext = offscreen.getContext('2d', { willReadFrequently: true });
 
@@ -27,6 +43,8 @@ let runDirection = 1;
 let runStartedAt = 0;
 let runDuration = 3200;
 let lastWalkProgress = 0;
+let chatOpen = false;
+let sendingChat = false;
 
 function fileUrl(filePath) {
   const normalized = filePath.replace(/\\/g, '/').replace(/^([A-Za-z]):/, '/$1:');
@@ -39,6 +57,7 @@ function resizeCanvas(pixels) {
   canvas.height = canvasSize;
   offscreen.width = canvasSize;
   offscreen.height = canvasSize;
+  appRoot.style.setProperty('--pet-size', `${canvasSize}px`);
 }
 
 function chooseAction() {
@@ -80,6 +99,86 @@ function playAction(action) {
     lastWalkProgress = 0;
     runDuration = Math.max(2400, Math.min(4200, (video.duration || 3.2) * 1000));
   }
+}
+
+function setChatStatus(text) {
+  chatStatus.textContent = text;
+}
+
+function appendMessage(role, text) {
+  const message = document.createElement('div');
+  message.className = `message ${role}`;
+  message.textContent = text;
+  chatMessages.appendChild(message);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function setChatOpen(open) {
+  chatOpen = open;
+  chatPanel.hidden = !open;
+  window.deskpet.setChatOpen(open);
+  if (open) {
+    loadDoubaoSettings();
+    window.setTimeout(() => chatInput.focus(), 120);
+  } else {
+    closeSettings();
+  }
+}
+
+function openChat() {
+  setChatOpen(true);
+}
+
+function closeChat() {
+  setChatOpen(false);
+}
+
+function openSettings() {
+  settingsPanel.hidden = false;
+  loadDoubaoSettings().then(() => baseUrlInput.focus());
+}
+
+function closeSettings() {
+  settingsPanel.hidden = true;
+}
+
+async function loadDoubaoSettings() {
+  const config = await window.deskpet.getDoubaoConfig();
+  baseUrlInput.value = config.baseURL || '';
+  apiKeyInput.value = config.apiKey || '';
+  modelInput.value = config.modelID || '';
+  systemPromptInput.value = config.systemPrompt || '';
+  setChatStatus(config.isConfigured ? '豆包已配置' : '请先配置豆包 API');
+  return config;
+}
+
+async function sendChatMessage(text) {
+  if (sendingChat) return;
+  const trimmed = text.trim();
+  if (!trimmed) return;
+
+  sendingChat = true;
+  chatInput.value = '';
+  sendButton.disabled = true;
+  setChatStatus('豆包正在思考');
+  appendMessage('user', trimmed);
+  playAction(videos.idle ? 'idle' : chooseAction());
+
+  const result = await window.deskpet.sendChat(trimmed);
+  sendingChat = false;
+  sendButton.disabled = false;
+
+  if (result.ok) {
+    appendMessage('assistant', result.text);
+    setChatStatus('回复完成');
+    if (videos.happy) {
+      playAction('happy');
+    }
+  } else {
+    appendMessage('error', result.error || '豆包请求失败。');
+    setChatStatus('请求失败');
+  }
+  scheduleNextIdleAction(true);
 }
 
 function keyGreen(imageData) {
@@ -177,11 +276,45 @@ canvas.addEventListener('pointerup', (event) => {
   canvas.releasePointerCapture(event.pointerId);
   window.deskpet.dragEnd();
 
-  if (!dragMoved && videos.happy) {
-    playAction('happy');
+  if (!dragMoved) {
+    openChat();
   } else if (dragMoved) {
     scheduleNextIdleAction(true);
   }
+});
+
+chatForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  sendChatMessage(chatInput.value);
+});
+
+chatInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    sendChatMessage(chatInput.value);
+  }
+});
+
+settingsButton.addEventListener('click', openSettings);
+closeChatButton.addEventListener('click', closeChat);
+closeSettingsButton.addEventListener('click', closeSettings);
+
+settingsPanel.addEventListener('click', (event) => {
+  if (event.target === settingsPanel) {
+    closeSettings();
+  }
+});
+
+settingsForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const saved = await window.deskpet.saveDoubaoConfig({
+    baseURL: baseUrlInput.value,
+    apiKey: apiKeyInput.value,
+    modelID: modelInput.value,
+    systemPrompt: systemPromptInput.value
+  });
+  setChatStatus(saved.isConfigured ? '豆包设置已保存' : '设置已保存，请补全 API Key 和 Endpoint / Model');
+  closeSettings();
 });
 
 window.deskpet.onReload(reloadPetVideos);
@@ -189,6 +322,11 @@ window.deskpet.onPlayAction((action) => {
   if (ACTIONS.includes(action) && videos[action]) {
     playAction(action);
   }
+});
+window.deskpet.onOpenChat(openChat);
+window.deskpet.onOpenSettings(() => {
+  openChat();
+  openSettings();
 });
 window.deskpet.onSizeChanged((pixels) => resizeCanvas(pixels));
 window.addEventListener('beforeunload', () => {

@@ -12,6 +12,8 @@ Windows desktop pet player for `custompet` resource packages.
 - Supports dragging and a right-click menu.
 - Right-click menu supports reload, action preview, size changes, return to desktop bottom, and opening the resource folder.
 - Automatically reloads when the `custompet` folder changes.
+- Click the pet or use the right-click menu to open the Doubao chat panel.
+- Doubao API settings match the macOS app: Base URL, API Key, Endpoint / Model, and System Prompt.
 
 ## Development
 
