@@ -423,7 +423,7 @@ function App() {
               onClick={createPaymentOrder}
               type="button"
             >
-              {generationStatus === 'running' ? '正在生成资源包' : `生成宠物资源包 ${selectedPlanDetails.price}`}
+              {generationStatus === 'running' ? '正在生成资源包' : '生成宠物资源包'}
               <span aria-hidden="true">→</span>
             </button>
             <p className={`generator-note generator-note-${generationStatus}`}>
