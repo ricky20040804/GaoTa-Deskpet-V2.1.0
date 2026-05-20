@@ -1552,6 +1552,7 @@ main {
 }
 
 .hero {
+  gap: 1.5rem 3rem;
   min-height: 720px;
   padding: 2rem 0 5rem;
 }
@@ -1611,7 +1612,7 @@ h3 {
   flex-wrap: nowrap;
   gap: 1.15rem;
   grid-column: 1 / -1;
-  margin-top: 2.25rem;
+  margin-top: 0;
 }
 
 .hero-actions .button {
