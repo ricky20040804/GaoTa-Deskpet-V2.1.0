@@ -286,6 +286,10 @@ function App() {
                 <span className="hero-action-title">下载问题-查看教程</span>
                 <span className="hero-action-subtitle">View Tutorial</span>
               </button>
+              <button className="button button-secondary" type="button">
+                <span className="hero-action-title">记得先登录哟</span>
+                <span className="hero-action-subtitle">Login First</span>
+              </button>
             </div>
           </div>
 
