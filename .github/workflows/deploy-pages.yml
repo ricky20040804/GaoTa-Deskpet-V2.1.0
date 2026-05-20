@@ -16,7 +16,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  windows-runner:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: windows-player/package-lock.json
+
+      - name: Install Windows player dependencies
+        working-directory: windows-player
+        run: npm ci
+
+      - name: Build Windows player
+        working-directory: windows-player
+        run: npm run pack
+
+      - name: Zip Windows player
+        shell: pwsh
+        run: Compress-Archive -Path windows-player/dist/* -DestinationPath gaotadeskpet-windows.zip -Force
+
+      - name: Upload Windows runner
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-runner
+          path: gaotadeskpet-windows.zip
+
   build:
+    needs: windows-runner
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -34,6 +66,12 @@ jobs:
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
+
+      - name: Download Windows runner
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-runner
+          path: website/public/downloads
 
       - name: Build website
         run: npm run build
