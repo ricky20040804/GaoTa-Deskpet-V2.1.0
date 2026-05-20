@@ -63,32 +63,32 @@ const paymentQrCode = '/payment/wechat-pay.JPG';
 const tutorialSteps = [
   {
     title: '如果你遇到了这个问题',
-    image: '/查看教程/出现问题.png',
+    image: '/查看教程/出现问题.jpg',
     alt: 'macOS 提示无法打开应用的问题截图',
   },
   {
     title: '第一步打开设置',
-    image: '/查看教程/第一步.png',
+    image: '/查看教程/第一步.jpg',
     alt: '打开系统设置的截图',
   },
   {
     title: '第二步向下滑动找到隐私与安全性',
-    image: '/查看教程/第二步.png',
+    image: '/查看教程/第二步.jpg',
     alt: '在系统设置中找到隐私与安全性的截图',
   },
   {
     title: '第三步在隐私与安全性中向下滑动并选择仍要打开',
-    image: '/查看教程/第三步.png',
+    image: '/查看教程/第三步.jpg',
     alt: '在隐私与安全性中选择仍要打开的截图',
   },
   {
     title: '第四步选择仍要打开',
-    image: '/查看教程/第四步.png',
+    image: '/查看教程/第四步.jpg',
     alt: '确认仍要打开应用的截图',
   },
   {
     title: '第五步然后就成功运行啦',
-    image: '/查看教程/第五步.png',
+    image: '/查看教程/第五步.jpg',
     alt: '桌面宠物成功运行的截图',
   },
 ];
@@ -130,6 +130,13 @@ function App() {
     playPreviewVideos();
     document.addEventListener('visibilitychange', playPreviewVideos);
     return () => document.removeEventListener('visibilitychange', playPreviewVideos);
+  }, []);
+
+  useEffect(() => {
+    tutorialSteps.forEach((step) => {
+      const image = new Image();
+      image.src = step.image;
+    });
   }, []);
 
   useEffect(() => {
