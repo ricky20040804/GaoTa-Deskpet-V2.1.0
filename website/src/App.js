@@ -58,6 +58,8 @@ const generationProgressMessages = [
   '正在打包 custompet.zip...'
 ];
 
+const paymentQrCode = '/payment/wechat-pay.JPG';
+
 const tutorialSteps = [
   {
     title: '如果你遇到了这个问题',
@@ -100,6 +102,11 @@ function App() {
   const [petPhotoPreview, setPetPhotoPreview] = useState('');
   const [generationStatus, setGenerationStatus] = useState('idle');
   const [generationMessage, setGenerationMessage] = useState('');
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [paymentOrderId, setPaymentOrderId] = useState('');
+
+  const selectedPlanDetails = generationPlans.find((plan) => plan.id === selectedPlan) || generationPlans[0];
+  const selectedStyleDetails = generationStyles.find((style) => style.id === selectedGenerationStyle) || generationStyles[0];
 
   useEffect(() => {
     if (!petPhoto) {
@@ -181,6 +188,20 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
+  const createPaymentOrder = () => {
+    if (!petPhoto) {
+      setGenerationStatus('error');
+      setGenerationMessage('请先上传一张宠物照片。');
+      return;
+    }
+
+    const orderId = `GT${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    setPaymentOrderId(orderId);
+    setIsPaymentOpen(true);
+    setGenerationStatus('idle');
+    setGenerationMessage(`已创建订单 ${orderId}，请扫码付款后点击“我已付款，开始生成”。`);
+  };
+
   const handleGeneratePackage = async () => {
     if (!petPhoto) {
       setGenerationStatus('error');
@@ -188,6 +209,7 @@ function App() {
       return;
     }
 
+    setIsPaymentOpen(false);
     setGenerationStatus('running');
     setGenerationMessage('正在生成首帧和四段绿幕动作视频，通常需要几分钟，请不要关闭页面。');
 
@@ -195,6 +217,8 @@ function App() {
       const formData = new FormData();
       formData.append('photo', petPhoto);
       formData.append('style', selectedGenerationStyle);
+      formData.append('plan', selectedPlan);
+      formData.append('orderId', paymentOrderId);
 
       const response = await fetch(generationApiUrl, {
         method: 'POST',
@@ -396,10 +420,10 @@ function App() {
             <button
               className="generate-package-button"
               disabled={generationStatus === 'running'}
-              onClick={handleGeneratePackage}
+              onClick={createPaymentOrder}
               type="button"
             >
-              {generationStatus === 'running' ? '正在生成资源包' : '生成宠物资源包'}
+              {generationStatus === 'running' ? '正在生成资源包' : `生成宠物资源包 ${selectedPlanDetails.price}`}
               <span aria-hidden="true">→</span>
             </button>
             <p className={`generator-note generator-note-${generationStatus}`}>
@@ -411,7 +435,7 @@ function App() {
         <section className="generation-plan-section" id="pricing">
           <div className="plan-copy">
             <h2>选择生成方案</h2>
-            <p>选择你需要的宠物生成类型，付费页面后续再接入。</p>
+            <p>选择你需要的宠物生成类型，上传照片后付款即可开始生成。</p>
           </div>
 
           <div className="generation-plan-grid">
@@ -433,7 +457,7 @@ function App() {
                   }}
                   type="button"
                 >
-                  先去制作宠物再收费
+                  选择这个方案
                 </button>
               </article>
             ))}
@@ -472,6 +496,83 @@ function App() {
                   <img className="tutorial-visual" src={step.image} alt={step.alt} />
                 </article>
               ))}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {isPaymentOpen && (
+        <div className="payment-overlay" role="presentation" onMouseDown={() => setIsPaymentOpen(false)}>
+          <section
+            aria-label="确认付款并生成宠物资源包"
+            aria-modal="true"
+            className="payment-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <button
+              aria-label="关闭付款窗口"
+              className="payment-close"
+              onClick={() => setIsPaymentOpen(false)}
+              type="button"
+            >
+              <X size={20} strokeWidth={2.4} />
+            </button>
+
+            <div className="payment-intro">
+              <p className="eyebrow">Payment</p>
+              <h2>确认生成方案</h2>
+              <p>请核对方案和金额，使用微信扫码付款后点击按钮开始生成资源包。</p>
+            </div>
+
+            <div className="payment-layout">
+              <div className="payment-plan-list" aria-label="选择生成方案">
+                {generationPlans.map((plan) => (
+                  <button
+                    aria-pressed={selectedPlan === plan.id}
+                    className={`payment-plan-option${selectedPlan === plan.id ? ' is-selected' : ''}`}
+                    key={plan.id}
+                    onClick={() => setSelectedPlan(plan.id)}
+                    type="button"
+                  >
+                    <span>
+                      <strong>{plan.title}</strong>
+                      <small>{plan.text}</small>
+                    </span>
+                    <b>{plan.price}</b>
+                  </button>
+                ))}
+              </div>
+
+              <div className="payment-card">
+                <div className="payment-summary">
+                  <span>订单号</span>
+                  <strong>{paymentOrderId}</strong>
+                </div>
+                <div className="payment-summary">
+                  <span>生成风格</span>
+                  <strong>{selectedStyleDetails.title}</strong>
+                </div>
+                <div className="payment-summary">
+                  <span>应付金额</span>
+                  <strong>{selectedPlanDetails.price}</strong>
+                </div>
+
+                <img className="payment-qr" src={paymentQrCode} alt="微信收款码" />
+                <p className="payment-hint">付款时建议备注订单号后 4 位：{paymentOrderId.slice(-4)}</p>
+
+                <button
+                  className="payment-confirm-button"
+                  disabled={generationStatus === 'running'}
+                  onClick={handleGeneratePackage}
+                  type="button"
+                >
+                  我已付款，开始生成
+                </button>
+                <p className="payment-manual-note">
+                  当前为人工收款确认版。请确认完成付款后再开始生成，后续可替换成微信支付自动回调。
+                </p>
+              </div>
             </div>
           </section>
         </div>
