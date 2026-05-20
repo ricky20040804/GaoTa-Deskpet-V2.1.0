@@ -253,8 +253,11 @@ function App() {
           GaoTa Desktop Pet
         </a>
         <div className="nav-links">
-          <a href="#home">Home</a>
-          <a href="#download">Download</a>
+          <a href="#home">首页</a>
+          <a href="#download">下载</a>
+          <button className="nav-login-button" type="button">
+            登录
+          </button>
         </div>
       </nav>
 
