@@ -273,24 +273,6 @@ function App() {
               支持Claudecode，Codex，Copilot，Gemini，OpenClaw，豆包等多种ai介入，让你的桌面宠物成为你的有温度的精神伴侣！<br />
               还在觉得常规桌面宠物卡顿，耗费token，部署困难吗，更加便利的桌面宠物来啦！只需要导入一张图片，就能生成独属于你家的专属宠物哟！
             </p>
-            <div className="hero-actions">
-              <a className="button button-primary" href="#download">
-                <span className="hero-action-title">开始制作</span>
-                <span className="hero-action-subtitle">Start Creating</span>
-              </a>
-              <button
-                className="button button-secondary"
-                onClick={() => setIsTutorialOpen(true)}
-                type="button"
-              >
-                <span className="hero-action-title">下载问题-查看教程</span>
-                <span className="hero-action-subtitle">View Tutorial</span>
-              </button>
-              <button className="button button-secondary" type="button">
-                <span className="hero-action-title">记得先登录哟</span>
-                <span className="hero-action-subtitle">Login First</span>
-              </button>
-            </div>
           </div>
 
           <div className="product-showcase" aria-label="AI Desktop Pet product preview">
@@ -314,6 +296,25 @@ function App() {
               <span>Mood</span>
               <strong>Happy</strong>
             </div>
+          </div>
+
+          <div className="hero-actions">
+            <a className="button button-primary" href="#download">
+              <span className="hero-action-title">开始制作</span>
+              <span className="hero-action-subtitle">Start Creating</span>
+            </a>
+            <button
+              className="button button-secondary"
+              onClick={() => setIsTutorialOpen(true)}
+              type="button"
+            >
+              <span className="hero-action-title">下载问题-查看教程</span>
+              <span className="hero-action-subtitle">View Tutorial</span>
+            </button>
+            <button className="button button-secondary" type="button">
+              <span className="hero-action-title">记得先登录哟</span>
+              <span className="hero-action-subtitle">Login First</span>
+            </button>
           </div>
         </section>
 
