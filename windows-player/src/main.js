@@ -10,8 +10,8 @@ const SIZE_PRESETS = {
   small: { label: '小', pixels: 100 }
 };
 const CHAT_WINDOW = {
-  width: 430,
-  height: 640
+  width: 420,
+  height: 520
 };
 const DEFAULT_DOUBAO = {
   baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
@@ -187,6 +187,15 @@ function clampWindowToDisplay(x, y, bounds, size) {
   return {
     x: Math.round(Math.min(Math.max(x, bounds.x), bounds.x + bounds.width - width)),
     y: Math.round(Math.min(Math.max(y, bounds.y), bounds.y + bounds.height - height))
+  };
+}
+
+function clampWindowForManualDrag(x, y, bounds) {
+  const [width, height] = mainWindow?.getSize() || [currentWindowSize(), currentWindowSize()];
+  const minVisible = Math.min(80, currentWindowSize() * 0.6);
+  return {
+    x: Math.round(Math.min(Math.max(x, bounds.x - width + minVisible), bounds.x + bounds.width - minVisible)),
+    y: Math.round(Math.min(Math.max(y, bounds.y - height + minVisible), bounds.y + bounds.height - minVisible))
   };
 }
 
@@ -434,7 +443,7 @@ ipcMain.on('pet:drag-move', () => {
 
   const cursor = screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(cursor);
-  const target = clampWindowToDisplay(
+  const target = clampWindowForManualDrag(
     cursor.x - dragOffset.x,
     cursor.y - dragOffset.y,
     display.workArea

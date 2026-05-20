@@ -82,12 +82,12 @@ body {
   font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
   gap: 10px;
   grid-template-rows: auto 1fr auto;
-  height: 330px;
-  left: 12px;
-  padding: 12px;
+  height: 300px;
+  left: 10px;
+  padding: 10px;
   position: absolute;
-  right: 12px;
-  top: 12px;
+  right: 10px;
+  top: 8px;
   z-index: 3;
 }
 
