@@ -242,8 +242,12 @@ function applyWindowMode(open = chatOpen) {
     [nextWidth, nextHeight]
   );
 
-  mainWindow.setSize(nextWidth, nextHeight, true);
-  mainWindow.setPosition(target.x, target.y, true);
+  mainWindow.setBounds({
+    x: target.x,
+    y: target.y,
+    width: nextWidth,
+    height: nextHeight
+  }, false);
 }
 
 function moveWindowBy(deltaX, deltaY) {
