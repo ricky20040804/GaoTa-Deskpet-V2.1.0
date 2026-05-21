@@ -2309,6 +2309,33 @@ main > .download-section:first-child {
   margin-top: 1.4rem;
 }
 
+.login-mode-tabs {
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(142, 102, 68, 0.16);
+  border-radius: 0.95rem;
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: 1fr 1fr;
+  padding: 0.35rem;
+}
+
+.login-mode-tabs button {
+  background: transparent;
+  border: 0;
+  border-radius: 0.72rem;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 950;
+  min-height: 2.6rem;
+}
+
+.login-mode-tabs button.is-active {
+  background: linear-gradient(135deg, var(--violet), var(--blue));
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(82, 89, 236, 0.18);
+}
+
 .login-form label {
   color: var(--ink);
   display: grid;
@@ -2354,8 +2381,7 @@ main > .download-section:first-child {
   width: 100%;
 }
 
-.login-submit-button:disabled,
-.login-code-row .button:disabled {
+.login-submit-button:disabled {
   cursor: wait;
   opacity: 0.72;
 }

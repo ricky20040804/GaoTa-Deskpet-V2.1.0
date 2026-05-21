@@ -32,10 +32,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SUPPORTED_STYLES = {"cartoon-pet", "real-pet", "cartoon-portrait"}
 PHONE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
-CODE_TTL_SECONDS = 5 * 60
 SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 DEFAULT_GENERATION_LIMIT = int(os.environ.get("GAOTA_GENERATION_LIMIT", "3"))
 AUTH_DB_PATH = Path(os.environ.get("GAOTA_AUTH_DB", ROOT / "data/gaota_auth.sqlite3"))
+PASSWORD_HASH_ROUNDS = 120_000
 
 
 def now() -> int:
@@ -44,6 +44,23 @@ def now() -> int:
 
 def hash_secret(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def hash_password(password: str, salt_hex: str) -> str:
+    return hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        bytes.fromhex(salt_hex),
+        PASSWORD_HASH_ROUNDS,
+    ).hex()
+
+
+def valid_username(username: str) -> bool:
+    return 2 <= len(username) <= 20
+
+
+def valid_password(password: str) -> bool:
+    return 6 <= len(password) <= 64
 
 
 def mask_phone(phone: str) -> str:
@@ -69,23 +86,13 @@ def init_auth_db() -> None:
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 phone TEXT NOT NULL UNIQUE,
+                username TEXT NOT NULL UNIQUE,
+                password_salt TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
                 generation_count INTEGER NOT NULL DEFAULT 0,
                 generation_limit INTEGER NOT NULL DEFAULT 3,
                 created_at INTEGER NOT NULL
             );
-
-            CREATE TABLE IF NOT EXISTS phone_codes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                phone TEXT NOT NULL,
-                code_hash TEXT NOT NULL,
-                expires_at INTEGER NOT NULL,
-                used_at INTEGER,
-                attempts INTEGER NOT NULL DEFAULT 0,
-                created_at INTEGER NOT NULL
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_phone_codes_phone_created
-            ON phone_codes(phone, created_at);
 
             CREATE TABLE IF NOT EXISTS sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,13 +104,23 @@ def init_auth_db() -> None:
             );
             """
         )
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(users)").fetchall()}
+        if "username" not in columns:
+            db.execute("ALTER TABLE users ADD COLUMN username TEXT")
+        if "password_salt" not in columns:
+            db.execute("ALTER TABLE users ADD COLUMN password_salt TEXT")
+        if "password_hash" not in columns:
+            db.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL")
 
 
 def user_payload(user: sqlite3.Row) -> dict:
     remaining = max(0, int(user["generation_limit"]) - int(user["generation_count"]))
+    username = user["username"] or mask_phone(user["phone"])
     return {
         "id": int(user["id"]),
         "phone": user["phone"],
+        "username": username,
         "maskedPhone": mask_phone(user["phone"]),
         "generationCount": int(user["generation_count"]),
         "generationLimit": int(user["generation_limit"]),
@@ -130,17 +147,14 @@ def find_user_by_token(token: str):
     return session
 
 
-def create_or_get_user(db: sqlite3.Connection, phone: str) -> sqlite3.Row:
+def create_session(db: sqlite3.Connection, user_id: int) -> str:
     current_time = now()
+    token = secrets.token_urlsafe(32)
     db.execute(
-        """
-        INSERT INTO users(phone, generation_count, generation_limit, created_at)
-        VALUES (?, 0, ?, ?)
-        ON CONFLICT(phone) DO NOTHING
-        """,
-        (phone, DEFAULT_GENERATION_LIMIT, current_time),
+        "INSERT INTO sessions(token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
+        (hash_secret(token), user_id, current_time + SESSION_TTL_SECONDS, current_time),
     )
-    return db.execute("SELECT * FROM users WHERE phone = ?", (phone,)).fetchone()
+    return token
 
 
 def tail_output(text: str, max_lines: int = 18) -> str:
@@ -224,8 +238,8 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
         self.send_json(200, {"authenticated": True, "user": user_payload(user)})
 
     def do_POST(self) -> None:
-        if self.path == "/api/auth/send-code":
-            self.handle_send_code()
+        if self.path == "/api/auth/register":
+            self.handle_register()
             return
         if self.path == "/api/auth/login":
             self.handle_login()
@@ -239,7 +253,7 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
 
         user = self.current_user()
         if not user:
-            self.send_plain_error(401, "请先登录手机号后再生成宠物资源包。")
+            self.send_plain_error(401, "请先登录账号后再生成宠物资源包。")
             return
         if int(user["generation_count"]) >= int(user["generation_limit"]):
             self.send_plain_error(403, "当前账号的生成次数已经用完。")
@@ -321,10 +335,12 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
 
-    def handle_send_code(self) -> None:
+    def handle_register(self) -> None:
         try:
             payload = self.read_json()
             phone = str(payload.get("phone", "")).strip()
+            username = str(payload.get("username", "")).strip()
+            password = str(payload.get("password", ""))
         except Exception:
             self.send_json(400, {"ok": False, "message": "请求格式不正确。"})
             return
@@ -332,39 +348,42 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
         if not valid_phone(phone):
             self.send_json(400, {"ok": False, "message": "请输入正确的中国大陆手机号。"})
             return
+        if not valid_username(username):
+            self.send_json(400, {"ok": False, "message": "用户名需要 2 到 20 个字符。"})
+            return
+        if not valid_password(password):
+            self.send_json(400, {"ok": False, "message": "密码需要 6 到 64 个字符。"})
+            return
 
         current_time = now()
+        salt = secrets.token_hex(16)
+        password_hash = hash_password(password, salt)
         with get_db() as db:
-            recent = db.execute(
-                "SELECT created_at FROM phone_codes WHERE phone = ? ORDER BY created_at DESC LIMIT 1",
-                (phone,),
-            ).fetchone()
-            if recent and current_time - int(recent["created_at"]) < 60:
-                self.send_json(429, {"ok": False, "message": "验证码发送太频繁，请 60 秒后再试。"})
+            existing_phone = db.execute("SELECT id FROM users WHERE phone = ?", (phone,)).fetchone()
+            if existing_phone:
+                self.send_json(409, {"ok": False, "message": "这个手机号已经注册过，请直接登录。"})
                 return
-
-            today_count = db.execute(
-                "SELECT COUNT(*) AS count FROM phone_codes WHERE phone = ? AND created_at > ?",
-                (phone, current_time - 24 * 60 * 60),
-            ).fetchone()["count"]
-            if int(today_count) >= 10:
-                self.send_json(429, {"ok": False, "message": "今天验证码发送次数过多，请明天再试。"})
+            existing_username = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+            if existing_username:
+                self.send_json(409, {"ok": False, "message": "这个用户名已经被使用，请换一个。"})
                 return
-
-            code = f"{secrets.randbelow(1_000_000):06d}"
-            db.execute(
-                "INSERT INTO phone_codes(phone, code_hash, expires_at, created_at) VALUES (?, ?, ?, ?)",
-                (phone, hash_secret(code), current_time + CODE_TTL_SECONDS, current_time),
+            cursor = db.execute(
+                """
+                INSERT INTO users(phone, username, password_salt, password_hash, generation_count, generation_limit, created_at)
+                VALUES (?, ?, ?, ?, 0, ?, ?)
+                """,
+                (phone, username, salt, password_hash, DEFAULT_GENERATION_LIMIT, current_time),
             )
+            user = db.execute("SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)).fetchone()
+            token = create_session(db, int(user["id"]))
 
-        print(f"[GaoTa Auth] 手机号 {mask_phone(phone)} 的登录验证码是：{code}", flush=True)
-        self.send_json(200, {"ok": True, "message": "验证码已发送，请查看短信。"})
+        self.send_json(200, {"ok": True, "token": token, "user": user_payload(user)})
 
     def handle_login(self) -> None:
         try:
             payload = self.read_json()
             phone = str(payload.get("phone", "")).strip()
-            code = str(payload.get("code", "")).strip()
+            password = str(payload.get("password", ""))
         except Exception:
             self.send_json(400, {"ok": False, "message": "请求格式不正确。"})
             return
@@ -372,41 +391,20 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
         if not valid_phone(phone):
             self.send_json(400, {"ok": False, "message": "请输入正确的中国大陆手机号。"})
             return
-        if not re.fullmatch(r"\d{6}", code):
-            self.send_json(400, {"ok": False, "message": "请输入 6 位验证码。"})
+        if not valid_password(password):
+            self.send_json(400, {"ok": False, "message": "请输入 6 到 64 位密码。"})
             return
 
-        current_time = now()
         with get_db() as db:
-            code_row = db.execute(
-                """
-                SELECT * FROM phone_codes
-                WHERE phone = ? AND used_at IS NULL
-                ORDER BY created_at DESC
-                LIMIT 1
-                """,
-                (phone,),
-            ).fetchone()
-
-            if not code_row or int(code_row["expires_at"]) < current_time:
-                self.send_json(400, {"ok": False, "message": "验证码已过期，请重新获取。"})
+            user = db.execute("SELECT * FROM users WHERE phone = ?", (phone,)).fetchone()
+            if not user or not user["password_salt"] or not user["password_hash"]:
+                self.send_json(401, {"ok": False, "message": "手机号或密码不正确。"})
                 return
-            if int(code_row["attempts"]) >= 5:
-                self.send_json(400, {"ok": False, "message": "验证码错误次数过多，请重新获取。"})
+            expected_hash = hash_password(password, user["password_salt"])
+            if not hmac.compare_digest(expected_hash, user["password_hash"]):
+                self.send_json(401, {"ok": False, "message": "手机号或密码不正确。"})
                 return
-            if not hmac.compare_digest(code_row["code_hash"], hash_secret(code)):
-                db.execute("UPDATE phone_codes SET attempts = attempts + 1 WHERE id = ?", (int(code_row["id"]),))
-                self.send_json(400, {"ok": False, "message": "验证码不正确。"})
-                return
-
-            db.execute("UPDATE phone_codes SET used_at = ? WHERE id = ?", (current_time, int(code_row["id"])))
-            user = create_or_get_user(db, phone)
-            token = secrets.token_urlsafe(32)
-            db.execute(
-                "INSERT INTO sessions(token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
-                (hash_secret(token), int(user["id"]), current_time + SESSION_TTL_SECONDS, current_time),
-            )
-            user = db.execute("SELECT * FROM users WHERE id = ?", (int(user["id"]),)).fetchone()
+            token = create_session(db, int(user["id"]))
 
         self.send_json(200, {"ok": True, "token": token, "user": user_payload(user)})
 

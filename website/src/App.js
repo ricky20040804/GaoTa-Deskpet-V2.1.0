@@ -127,8 +127,10 @@ function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [authToken, setAuthToken] = useState(() => window.localStorage.getItem(authTokenStorageKey) || '');
   const [currentUser, setCurrentUser] = useState(null);
+  const [authMode, setAuthMode] = useState('login');
+  const [loginUsername, setLoginUsername] = useState('');
   const [loginPhone, setLoginPhone] = useState('');
-  const [loginCode, setLoginCode] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginMessage, setLoginMessage] = useState('');
   const [loginStatus, setLoginStatus] = useState('idle');
 
@@ -198,48 +200,65 @@ function App() {
 
   const openLogin = () => {
     setIsLoginOpen(true);
-    setLoginMessage(currentUser ? `已登录：${currentUser.maskedPhone}` : '');
+    setLoginMessage(currentUser ? `已登录：${currentUser.username}` : '');
   };
 
-  const handleSendCode = async () => {
+  const validateAccountForm = ({ needsUsername = false } = {}) => {
     const phone = loginPhone.trim();
     if (!/^1[3-9]\d{9}$/.test(phone)) {
       setLoginStatus('error');
       setLoginMessage('请输入正确的中国大陆手机号。');
+      return null;
+    }
+    const password = loginPassword;
+    if (password.length < 6 || password.length > 64) {
+      setLoginStatus('error');
+      setLoginMessage('密码需要 6 到 64 个字符。');
+      return null;
+    }
+    const username = loginUsername.trim();
+    if (needsUsername && (username.length < 2 || username.length > 20)) {
+      setLoginStatus('error');
+      setLoginMessage('用户名需要 2 到 20 个字符。');
+      return null;
+    }
+    return { phone, password, username };
+  };
+
+  const handleRegister = async () => {
+    const account = validateAccountForm({ needsUsername: true });
+    if (!account) {
       return;
     }
 
-    setLoginStatus('sending');
-    setLoginMessage('正在发送验证码...');
+    setLoginStatus('registering');
+    setLoginMessage('正在注册...');
     try {
-      const response = await fetch(buildApiUrl('/api/auth/send-code'), {
+      const response = await fetch(buildApiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify(account),
       });
       const data = await readApiResponse(response);
       if (!response.ok || !data.ok) {
-        throw new Error(data.message || '验证码发送失败。');
+        throw new Error(data.message || '注册失败。');
       }
+      window.localStorage.setItem(authTokenStorageKey, data.token);
+      setAuthToken(data.token);
+      setCurrentUser(data.user);
+      setIsLoginOpen(false);
+      setLoginPassword('');
       setLoginStatus('idle');
-      setLoginMessage('验证码已发送，请查看短信。当前过渡版验证码会打印在后端日志里。');
+      setGenerationMessage(`注册成功：${data.user.username}，当前账号最多可付费生成 ${data.user.generationLimit} 次。`);
     } catch (error) {
       setLoginStatus('error');
-      setLoginMessage(error.message || '验证码发送失败。');
+      setLoginMessage(error.message || '注册失败。');
     }
   };
 
   const handleLogin = async () => {
-    const phone = loginPhone.trim();
-    const code = loginCode.trim();
-    if (!/^1[3-9]\d{9}$/.test(phone)) {
-      setLoginStatus('error');
-      setLoginMessage('请输入正确的中国大陆手机号。');
-      return;
-    }
-    if (!/^\d{6}$/.test(code)) {
-      setLoginStatus('error');
-      setLoginMessage('请输入 6 位验证码。');
+    const account = validateAccountForm();
+    if (!account) {
       return;
     }
 
@@ -249,7 +268,7 @@ function App() {
       const response = await fetch(buildApiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ phone: account.phone, password: account.password }),
       });
       const data = await readApiResponse(response);
       if (!response.ok || !data.ok) {
@@ -259,9 +278,9 @@ function App() {
       setAuthToken(data.token);
       setCurrentUser(data.user);
       setIsLoginOpen(false);
-      setLoginCode('');
+      setLoginPassword('');
       setLoginStatus('idle');
-      setGenerationMessage(`已登录：${data.user.maskedPhone}，剩余生成次数 ${data.user.remainingGenerations}/${data.user.generationLimit}。`);
+      setGenerationMessage(`已登录：${data.user.username}，剩余付费生成次数 ${data.user.remainingGenerations}/${data.user.generationLimit}。`);
     } catch (error) {
       setLoginStatus('error');
       setLoginMessage(error.message || '登录失败。');
@@ -345,7 +364,7 @@ function App() {
   const createPaymentOrder = () => {
     if (!currentUser) {
       setGenerationStatus('error');
-      setGenerationMessage('请先登录手机号后再生成宠物资源包。');
+      setGenerationMessage('请先登录账号后再生成宠物资源包。');
       openLogin();
       return;
     }
@@ -370,7 +389,7 @@ function App() {
   const handleGeneratePackage = async () => {
     if (!authToken || !currentUser) {
       setGenerationStatus('error');
-      setGenerationMessage('请先登录手机号后再生成宠物资源包。');
+      setGenerationMessage('请先登录账号后再生成宠物资源包。');
       openLogin();
       return;
     }
@@ -429,7 +448,7 @@ function App() {
           <a href="#home">首页</a>
           <a href="#download">下载</a>
           <button className="nav-login-button" onClick={openLogin} type="button">
-            {currentUser ? currentUser.maskedPhone : '登录'}
+            {currentUser ? currentUser.username : '登录'}
           </button>
         </div>
       </nav>
@@ -611,8 +630,8 @@ function App() {
             </button>
             <p className={`generator-note generator-note-${generationStatus}`}>
               {generationMessage || (currentUser
-                ? `当前账号剩余生成次数：${currentUser.remainingGenerations}/${currentUser.generationLimit}。生成后的 custompet.zip 解压到“下载”文件夹后，桌面运行器会自动读取 mp4 并实时扣绿播放。`
-                : '请先登录手机号。生成后的 custompet.zip 解压到“下载”文件夹后，桌面运行器会自动读取 mp4 并实时扣绿播放。')}
+                ? `当前账号剩余付费生成次数：${currentUser.remainingGenerations}/${currentUser.generationLimit}。生成后的 custompet.zip 解压到“下载”文件夹后，桌面运行器会自动读取 mp4 并实时扣绿播放。`
+                : '请先登录账号。生成后的 custompet.zip 解压到“下载”文件夹后，桌面运行器会自动读取 mp4 并实时扣绿播放。')}
             </p>
           </div>
         </section>
@@ -689,7 +708,7 @@ function App() {
       {isLoginOpen && (
         <div className="login-overlay" role="presentation" onMouseDown={() => setIsLoginOpen(false)}>
           <section
-            aria-label="手机号登录"
+            aria-label="账号登录"
             aria-modal="true"
             className="login-modal"
             onMouseDown={(event) => event.stopPropagation()}
@@ -705,20 +724,59 @@ function App() {
             </button>
 
             <p className="eyebrow">Login</p>
-            <h2>手机号登录</h2>
-            <p className="login-copy">登录后每个账号最多可以生成 3 次宠物资源包。</p>
+            <h2>账号登录</h2>
+            <p className="login-copy">每个账号最多可付费生成 3 次宠物资源包。</p>
 
             {currentUser ? (
               <div className="login-account-card">
                 <span>当前已登录</span>
-                <strong>{currentUser.maskedPhone}</strong>
-                <span>剩余生成次数：{currentUser.remainingGenerations}/{currentUser.generationLimit}</span>
+                <strong>{currentUser.username}</strong>
+                <span>{currentUser.maskedPhone}</span>
+                <span>剩余付费生成次数：{currentUser.remainingGenerations}/{currentUser.generationLimit}</span>
                 <button className="button button-secondary" onClick={handleLogout} type="button">
                   退出登录
                 </button>
               </div>
             ) : (
               <div className="login-form">
+                <div className="login-mode-tabs" role="tablist" aria-label="账号操作">
+                  <button
+                    aria-selected={authMode === 'login'}
+                    className={authMode === 'login' ? 'is-active' : ''}
+                    onClick={() => {
+                      setAuthMode('login');
+                      setLoginMessage('');
+                    }}
+                    role="tab"
+                    type="button"
+                  >
+                    登录
+                  </button>
+                  <button
+                    aria-selected={authMode === 'register'}
+                    className={authMode === 'register' ? 'is-active' : ''}
+                    onClick={() => {
+                      setAuthMode('register');
+                      setLoginMessage('');
+                    }}
+                    role="tab"
+                    type="button"
+                  >
+                    注册
+                  </button>
+                </div>
+                {authMode === 'register' && (
+                  <label>
+                    <span>用户名</span>
+                    <input
+                      maxLength={20}
+                      onChange={(event) => setLoginUsername(event.target.value.slice(0, 20))}
+                      placeholder="请输入 2 到 20 位用户名"
+                      type="text"
+                      value={loginUsername}
+                    />
+                  </label>
+                )}
                 <label>
                   <span>中国大陆手机号</span>
                   <input
@@ -731,39 +789,31 @@ function App() {
                   />
                 </label>
                 <label>
-                  <span>验证码</span>
-                  <div className="login-code-row">
-                    <input
-                      inputMode="numeric"
-                      maxLength={6}
-                      onChange={(event) => setLoginCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="6 位验证码"
-                      type="text"
-                      value={loginCode}
-                    />
-                    <button
-                      className="button button-secondary"
-                      disabled={loginStatus === 'sending'}
-                      onClick={handleSendCode}
-                      type="button"
-                    >
-                      {loginStatus === 'sending' ? '发送中' : '发送验证码'}
-                    </button>
-                  </div>
+                  <span>密码</span>
+                  <input
+                    autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
+                    maxLength={64}
+                    onChange={(event) => setLoginPassword(event.target.value)}
+                    placeholder="请输入 6 到 64 位密码"
+                    type="password"
+                    value={loginPassword}
+                  />
                 </label>
                 <button
                   className="login-submit-button"
-                  disabled={loginStatus === 'logging-in'}
-                  onClick={handleLogin}
+                  disabled={loginStatus === 'logging-in' || loginStatus === 'registering'}
+                  onClick={authMode === 'register' ? handleRegister : handleLogin}
                   type="button"
                 >
-                  {loginStatus === 'logging-in' ? '登录中' : '登录'}
+                  {loginStatus === 'logging-in' && '登录中'}
+                  {loginStatus === 'registering' && '注册中'}
+                  {loginStatus !== 'logging-in' && loginStatus !== 'registering' && (authMode === 'register' ? '注册并登录' : '登录')}
                 </button>
               </div>
             )}
 
             <p className={`login-message login-message-${loginStatus}`}>
-              {loginMessage || '当前过渡版验证码会打印在后端日志里，后续可直接换成阿里云短信。'}
+              {loginMessage || '注册后请先付款，再生成宠物资源包；每个账号最多可付费生成 3 次。'}
             </p>
           </section>
         </div>
