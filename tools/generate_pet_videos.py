@@ -29,6 +29,10 @@ FRAME_SAFETY_RULE = (
     "画面构图必须全程保留完整主体，头部、耳朵、尾巴、四肢和身体任何部分都不能超出画面或贴边，"
     "四周至少保留15%的纯绿色安全边距。动作幅度要控制在画面中央区域内，不能被裁剪。"
 )
+PORTRAIT_FRAME_SAFETY_RULE = (
+    "画面构图必须全程保留完整人物主体，头部、头发、手臂、手、腿、脚、服饰和身体任何部分都不能超出画面或贴边，"
+    "四周至少保留15%的纯绿色安全边距。动作幅度要控制在画面中央区域内，不能被裁剪。"
+)
 GREEN_SCREEN_RULE = (
     "背景必须在所有帧中始终保持完全一致的纯亮绿色绿幕（#00FF00），"
     "不能出现颜色变化、光照变化、阴影、渐变、纹理、噪点、物体、地面线或透明边缘污染，方便后续脚本稳定抠图。"
@@ -51,9 +55,13 @@ STYLE_PROMPTS = {
     ),
     "cartoon-portrait": (
         "将用户上传的照片转换成正面视角的2D卡通桌面伙伴首帧。"
-        "要求：完整主体，面向镜头，表情友好，边缘清晰，"
-        "保留照片主体的主要五官、发型、服饰和气质特征，适合做macOS桌面宠物动画。"
-        f"{FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
+        "先根据照片判断主体是男性还是女性，并按判断结果生成对应性别的卡通人像："
+        "如果是男性，生成可爱的男性2D卡通桌面伙伴，保留男性脸型、发型、眉眼、服饰和气质；"
+        "如果是女性，生成可爱的女性2D卡通桌面伙伴，保留女性脸型、发型、眉眼、服饰和气质。"
+        "要求：全身完整站立，正面或轻微三分之二正面视角，面向镜头，表情友好，边缘清晰，"
+        "保留照片主体的主要五官、发型、服饰、配饰、肤色和整体气质特征，适合做桌面宠物动画。"
+        "不要改变用户照片主体的性别，不要生成多人，不要生成宠物、动物或玩偶。"
+        f"{PORTRAIT_FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
     ),
 }
 
@@ -90,6 +98,37 @@ ACTION_PROMPT_TEMPLATES = {
         "3秒循环动画。宠物舒服地趴着或坐趴待机，轻微呼吸，偶尔眨眼或轻轻摇尾巴，"
         "整体安静放松，{style_phrase}"
         f"{FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
+    ),
+}
+
+PORTRAIT_ACTION_PROMPT_TEMPLATES = {
+    "idle": (
+        "3秒循环动画。卡通人像全身完整站着待机，姿态自然放松，轻微呼吸，偶尔眨眼，"
+        "手臂和头发有很轻微的自然摆动，身体位置基本不移动。"
+        "{style_phrase}根据首帧主体的性别保持一致：男性保持男性外貌和气质，女性保持女性外貌和气质。"
+        f"{PORTRAIT_FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
+    ),
+    "run": (
+        "3秒循环动画。卡通人像从左向右轻松溜达/散步，步伐自然，身体轻微上下起伏，"
+        "手臂随步伐轻轻摆动，表情轻松。"
+        "{style_phrase}根据首帧主体的性别保持一致：男性保持男性外貌和气质，女性保持女性外貌和气质。"
+        "只生成向右溜达，向左移动将由app镜像。"
+        f"{PORTRAIT_FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
+        "溜达时主体可以做原地走路动作，但不要让身体横向走出画面。"
+    ),
+    "happy": (
+        "3秒动画。卡通人像开心庆祝，原地轻轻跳一下、挥手或比一个开心的手势，"
+        "表情快乐，像刚刚成功完成任务。"
+        "{style_phrase}根据首帧主体的性别保持一致：男性保持男性外貌和气质，女性保持女性外貌和气质。"
+        f"{PORTRAIT_FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
+        "开心动作幅度要小，头顶、手臂、头发和脚都不能接近或超出画面边缘。"
+    ),
+    "rest": (
+        "3秒循环动画。卡通人像从旁边搬来一把简洁的小椅子，坐上去，最后形成坐着跷二郎腿的待机姿势，"
+        "动作自然可爱，坐稳后轻微呼吸、偶尔眨眼，表情放松。椅子必须完整出现在画面中，但不要喧宾夺主。"
+        "{style_phrase}根据首帧主体的性别保持一致：男性保持男性外貌和气质，女性保持女性外貌和气质。"
+        f"{PORTRAIT_FRAME_SAFETY_RULE}{GREEN_SCREEN_RULE}"
+        "搬椅子和坐下时身体、椅子、腿、脚、手臂、头发都不能超出画面。"
     ),
 }
 
@@ -205,7 +244,8 @@ def choose_video_url(response: dict[str, Any]) -> str:
 
 def action_prompt(action: str, style: str) -> str:
     style_phrase = ACTION_STYLE_PHRASES.get(style, ACTION_STYLE_PHRASES["cartoon-pet"])
-    return ACTION_PROMPT_TEMPLATES[action].format(style_phrase=style_phrase)
+    templates = PORTRAIT_ACTION_PROMPT_TEMPLATES if style == "cartoon-portrait" else ACTION_PROMPT_TEMPLATES
+    return templates[action].format(style_phrase=style_phrase)
 
 
 def create_first_frame(api_key: str, source_image: str, model: str, style: str) -> str:
