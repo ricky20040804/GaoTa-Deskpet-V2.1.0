@@ -401,7 +401,7 @@ function App() {
 
     setIsPaymentOpen(false);
     setGenerationStatus('running');
-    setGenerationMessage('正在生成首帧和四段绿幕动作视频，通常需要几分钟，请不要关闭页面。');
+    setGenerationMessage('正在生成宠物包，通常需要几分钟，请不要关闭页面。');
 
     try {
       const formData = new FormData();
@@ -424,7 +424,7 @@ function App() {
       const blob = await response.blob();
       downloadBlob(blob, 'custompet.zip');
       setGenerationStatus('success');
-      setGenerationMessage('生成完成，custompet.zip 已开始下载。解压到“下载”文件夹后，运行器会自动读取 mp4 并实时扣绿播放。');
+      setGenerationMessage('生成完成，custompet.zip 已开始下载。请您务必解压到“下载”文件夹，这样运行器才能成功读取。');
       refreshCurrentUser();
     } catch (error) {
       setGenerationStatus('error');
@@ -630,7 +630,7 @@ function App() {
             </button>
             <p className={`generator-note generator-note-${generationStatus}`}>
               {generationMessage || (currentUser
-                ? `当前账号剩余付费生成次数：${currentUser.remainingGenerations}/${currentUser.generationLimit}。生成后的 custompet.zip 解压到“下载”文件夹后，桌面运行器会自动读取 mp4 并实时扣绿播放。`
+                ? `当前账号剩余付费生成次数：${currentUser.remainingGenerations}/${currentUser.generationLimit}。生成后的 custompet.zip 请您务必解压到“下载”文件夹，这样运行器才能成功读取。`
                 : '请先登录账号。生成后的 custompet.zip 解压到“下载”文件夹后，桌面运行器会自动读取 mp4 并实时扣绿播放。')}
             </p>
           </div>
