@@ -15,6 +15,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 
@@ -37,17 +38,33 @@ def main() -> int:
     if not (PLAYER_DIR / "node_modules").exists():
         run(["npm", "install"], PLAYER_DIR)
 
+    if DIST_DIR.exists():
+        shutil.rmtree(DIST_DIR)
+
     run(["npm", "run", "pack"], PLAYER_DIR)
 
     if not DIST_DIR.exists():
         print(f"Build did not create dist directory: {DIST_DIR}", file=sys.stderr)
         return 1
 
+    portable_exes = sorted(
+        path
+        for path in DIST_DIR.glob("GaoTa-Deskpet-Windows-*.exe")
+        if path.is_file()
+    )
+    if not portable_exes:
+        print(f"Build did not create a portable Windows exe in {DIST_DIR}", file=sys.stderr)
+        return 1
+    portable_exe = portable_exes[-1]
+
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     if OUTPUT.exists():
         OUTPUT.unlink()
 
-    shutil.make_archive(str(OUTPUT.with_suffix("")), "zip", DIST_DIR)
+    with zipfile.ZipFile(OUTPUT, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        archive.write(portable_exe, arcname=portable_exe.name)
+
+    print(f"Packaged {portable_exe.name}")
     print(f"Wrote {OUTPUT}")
     return 0
 

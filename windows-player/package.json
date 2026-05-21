@@ -12,6 +12,9 @@
   "build": {
     "appId": "cn.gaotadeskpet.windows",
     "productName": "GaoTa Deskpet",
+    "asar": true,
+    "compression": "maximum",
+    "npmRebuild": false,
     "files": [
       "src/**/*",
       "package.json"
