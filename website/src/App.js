@@ -3,11 +3,26 @@ import { ImagePlus, X } from 'lucide-react';
 import './App.css';
 
 const defaultGenerationApiUrl = 'https://api.gaotadeskpet.cn/api/generate-pet-package';
-const generationApiUrl = process.env.REACT_APP_GENERATE_API_URL || defaultGenerationApiUrl;
+const configuredGenerationApiUrl = process.env.REACT_APP_GENERATE_API_URL || defaultGenerationApiUrl;
+const configuredApiOriginMatch = configuredGenerationApiUrl.match(/^https?:\/\/[^/]+/i);
+const generationApiUrl = configuredApiOriginMatch ? configuredGenerationApiUrl : defaultGenerationApiUrl;
 const apiOriginMatch = generationApiUrl.match(/^https?:\/\/[^/]+/i);
 const apiOrigin = apiOriginMatch ? apiOriginMatch[0] : '';
 const buildApiUrl = (path) => (apiOrigin ? `${apiOrigin}${path}` : path);
 const authTokenStorageKey = 'gaota_auth_token';
+
+const readApiResponse = async (response) => {
+  const text = await response.text();
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
+};
 
 const generationStyles = [
   {
@@ -163,7 +178,7 @@ function App() {
       const response = await fetch(buildApiUrl('/api/auth/me'), {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await response.json();
+      const data = await readApiResponse(response);
       if (data.authenticated) {
         setCurrentUser(data.user);
         return data.user;
@@ -202,7 +217,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone }),
       });
-      const data = await response.json();
+      const data = await readApiResponse(response);
       if (!response.ok || !data.ok) {
         throw new Error(data.message || '验证码发送失败。');
       }
@@ -236,7 +251,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, code }),
       });
-      const data = await response.json();
+      const data = await readApiResponse(response);
       if (!response.ok || !data.ok) {
         throw new Error(data.message || '登录失败。');
       }
