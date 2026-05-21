@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import './App.css';
 
-const generationApiUrl = process.env.REACT_APP_GENERATE_API_URL || '/api/generate-pet-package';
-const apiBaseUrl = generationApiUrl.replace(/\/api\/generate-pet-package$/, '');
+const defaultGenerationApiUrl = 'https://api.gaotadeskpet.cn/api/generate-pet-package';
+const generationApiUrl = process.env.REACT_APP_GENERATE_API_URL || defaultGenerationApiUrl;
+const buildApiUrl = (path) => new URL(path, generationApiUrl).toString();
 const authTokenStorageKey = 'gaota_auth_token';
 
 const generationStyles = [
@@ -157,7 +158,7 @@ function App() {
     }
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
+      const response = await fetch(buildApiUrl('/api/auth/me'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -194,7 +195,7 @@ function App() {
     setLoginStatus('sending');
     setLoginMessage('正在发送验证码...');
     try {
-      const response = await fetch(`${apiBaseUrl}/api/auth/send-code`, {
+      const response = await fetch(buildApiUrl('/api/auth/send-code'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone }),
@@ -228,7 +229,7 @@ function App() {
     setLoginStatus('logging-in');
     setLoginMessage('正在登录...');
     try {
-      const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+      const response = await fetch(buildApiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, code }),
@@ -253,7 +254,7 @@ function App() {
   const handleLogout = async () => {
     try {
       if (authToken) {
-        await fetch(`${apiBaseUrl}/api/auth/logout`, {
+        await fetch(buildApiUrl('/api/auth/logout'), {
           method: 'POST',
           headers: { Authorization: `Bearer ${authToken}` },
         });
