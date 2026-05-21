@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import './App.css';
 
 const generationApiUrl = process.env.REACT_APP_GENERATE_API_URL || '/api/generate-pet-package';
+const apiBaseUrl = generationApiUrl.replace(/\/api\/generate-pet-package$/, '');
+const authTokenStorageKey = 'gaota_auth_token';
 
 const generationStyles = [
   {
@@ -104,6 +106,13 @@ function App() {
   const [generationMessage, setGenerationMessage] = useState('');
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [paymentOrderId, setPaymentOrderId] = useState('');
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [authToken, setAuthToken] = useState(() => window.localStorage.getItem(authTokenStorageKey) || '');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loginPhone, setLoginPhone] = useState('');
+  const [loginCode, setLoginCode] = useState('');
+  const [loginMessage, setLoginMessage] = useState('');
+  const [loginStatus, setLoginStatus] = useState('idle');
 
   const selectedPlanDetails = generationPlans.find((plan) => plan.id === selectedPlan) || generationPlans[0];
   const selectedStyleDetails = generationStyles.find((style) => style.id === selectedGenerationStyle) || generationStyles[0];
@@ -138,6 +147,126 @@ function App() {
       image.src = step.image;
     });
   }, []);
+
+  const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+
+  const refreshCurrentUser = useCallback(async (token = authToken) => {
+    if (!token) {
+      setCurrentUser(null);
+      return null;
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.authenticated) {
+        setCurrentUser(data.user);
+        return data.user;
+      }
+      window.localStorage.removeItem(authTokenStorageKey);
+      setAuthToken('');
+      setCurrentUser(null);
+      return null;
+    } catch {
+      return null;
+    }
+  }, [authToken]);
+
+  useEffect(() => {
+    refreshCurrentUser();
+  }, [refreshCurrentUser]);
+
+  const openLogin = () => {
+    setIsLoginOpen(true);
+    setLoginMessage(currentUser ? `已登录：${currentUser.maskedPhone}` : '');
+  };
+
+  const handleSendCode = async () => {
+    const phone = loginPhone.trim();
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      setLoginStatus('error');
+      setLoginMessage('请输入正确的中国大陆手机号。');
+      return;
+    }
+
+    setLoginStatus('sending');
+    setLoginMessage('正在发送验证码...');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/auth/send-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || '验证码发送失败。');
+      }
+      setLoginStatus('idle');
+      setLoginMessage('验证码已发送，请查看短信。当前过渡版验证码会打印在后端日志里。');
+    } catch (error) {
+      setLoginStatus('error');
+      setLoginMessage(error.message || '验证码发送失败。');
+    }
+  };
+
+  const handleLogin = async () => {
+    const phone = loginPhone.trim();
+    const code = loginCode.trim();
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      setLoginStatus('error');
+      setLoginMessage('请输入正确的中国大陆手机号。');
+      return;
+    }
+    if (!/^\d{6}$/.test(code)) {
+      setLoginStatus('error');
+      setLoginMessage('请输入 6 位验证码。');
+      return;
+    }
+
+    setLoginStatus('logging-in');
+    setLoginMessage('正在登录...');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || '登录失败。');
+      }
+      window.localStorage.setItem(authTokenStorageKey, data.token);
+      setAuthToken(data.token);
+      setCurrentUser(data.user);
+      setIsLoginOpen(false);
+      setLoginCode('');
+      setLoginStatus('idle');
+      setGenerationMessage(`已登录：${data.user.maskedPhone}，剩余生成次数 ${data.user.remainingGenerations}/${data.user.generationLimit}。`);
+    } catch (error) {
+      setLoginStatus('error');
+      setLoginMessage(error.message || '登录失败。');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      if (authToken) {
+        await fetch(`${apiBaseUrl}/api/auth/logout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+      }
+    } catch {
+      // Local logout still succeeds if the network is unavailable.
+    }
+    window.localStorage.removeItem(authTokenStorageKey);
+    setAuthToken('');
+    setCurrentUser(null);
+    setIsLoginOpen(false);
+    setGenerationMessage('已退出登录。');
+  };
 
   useEffect(() => {
     if (generationStatus !== 'running') {
@@ -196,6 +325,17 @@ function App() {
   };
 
   const createPaymentOrder = () => {
+    if (!currentUser) {
+      setGenerationStatus('error');
+      setGenerationMessage('请先登录手机号后再生成宠物资源包。');
+      openLogin();
+      return;
+    }
+    if (currentUser.remainingGenerations <= 0) {
+      setGenerationStatus('error');
+      setGenerationMessage('当前账号的生成次数已经用完。');
+      return;
+    }
     if (!petPhoto) {
       setGenerationStatus('error');
       setGenerationMessage('请先上传一张宠物照片。');
@@ -210,6 +350,12 @@ function App() {
   };
 
   const handleGeneratePackage = async () => {
+    if (!authToken || !currentUser) {
+      setGenerationStatus('error');
+      setGenerationMessage('请先登录手机号后再生成宠物资源包。');
+      openLogin();
+      return;
+    }
     if (!petPhoto) {
       setGenerationStatus('error');
       setGenerationMessage('请先上传一张宠物照片。');
@@ -229,6 +375,7 @@ function App() {
 
       const response = await fetch(generationApiUrl, {
         method: 'POST',
+        headers: authHeaders,
         body: formData,
       });
 
@@ -241,6 +388,7 @@ function App() {
       downloadBlob(blob, 'custompet.zip');
       setGenerationStatus('success');
       setGenerationMessage('生成完成，custompet.zip 已开始下载。解压到“下载”文件夹后，运行器会自动读取 mp4 并实时扣绿播放。');
+      refreshCurrentUser();
     } catch (error) {
       setGenerationStatus('error');
       setGenerationMessage(formatGenerationError(error));
@@ -262,8 +410,8 @@ function App() {
         <div className="nav-links">
           <a href="#home">首页</a>
           <a href="#download">下载</a>
-          <button className="nav-login-button" type="button">
-            登录
+          <button className="nav-login-button" onClick={openLogin} type="button">
+            {currentUser ? currentUser.maskedPhone : '登录'}
           </button>
         </div>
       </nav>
@@ -318,9 +466,11 @@ function App() {
               <span className="hero-action-title">下载问题-查看教程</span>
               <span className="hero-action-subtitle">View Tutorial</span>
             </button>
-            <button className="button button-secondary" type="button">
+            <button className="button button-secondary" onClick={openLogin} type="button">
               <span className="hero-action-title">记得先登录哟</span>
-              <span className="hero-action-subtitle">Login First</span>
+              <span className="hero-action-subtitle">
+                {currentUser ? `剩余 ${currentUser.remainingGenerations}/${currentUser.generationLimit}` : 'Login First'}
+              </span>
             </button>
           </div>
         </section>
@@ -442,7 +592,9 @@ function App() {
               <span aria-hidden="true">→</span>
             </button>
             <p className={`generator-note generator-note-${generationStatus}`}>
-              {generationMessage || '生成后的 custompet.zip 解压到“下载”文件夹后，桌面运行器会自动读取 mp4 并实时扣绿播放。'}
+              {generationMessage || (currentUser
+                ? `当前账号剩余生成次数：${currentUser.remainingGenerations}/${currentUser.generationLimit}。生成后的 custompet.zip 解压到“下载”文件夹后，桌面运行器会自动读取 mp4 并实时扣绿播放。`
+                : '请先登录手机号。生成后的 custompet.zip 解压到“下载”文件夹后，桌面运行器会自动读取 mp4 并实时扣绿播放。')}
             </p>
           </div>
         </section>
@@ -512,6 +664,89 @@ function App() {
                 </article>
               ))}
             </div>
+          </section>
+        </div>
+      )}
+
+      {isLoginOpen && (
+        <div className="login-overlay" role="presentation" onMouseDown={() => setIsLoginOpen(false)}>
+          <section
+            aria-label="手机号登录"
+            aria-modal="true"
+            className="login-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <button
+              aria-label="关闭登录窗口"
+              className="login-close"
+              onClick={() => setIsLoginOpen(false)}
+              type="button"
+            >
+              <X size={20} strokeWidth={2.4} />
+            </button>
+
+            <p className="eyebrow">Login</p>
+            <h2>手机号登录</h2>
+            <p className="login-copy">登录后每个账号最多可以生成 3 次宠物资源包。</p>
+
+            {currentUser ? (
+              <div className="login-account-card">
+                <span>当前已登录</span>
+                <strong>{currentUser.maskedPhone}</strong>
+                <span>剩余生成次数：{currentUser.remainingGenerations}/{currentUser.generationLimit}</span>
+                <button className="button button-secondary" onClick={handleLogout} type="button">
+                  退出登录
+                </button>
+              </div>
+            ) : (
+              <div className="login-form">
+                <label>
+                  <span>中国大陆手机号</span>
+                  <input
+                    inputMode="numeric"
+                    maxLength={11}
+                    onChange={(event) => setLoginPhone(event.target.value.replace(/\D/g, '').slice(0, 11))}
+                    placeholder="请输入 11 位手机号"
+                    type="tel"
+                    value={loginPhone}
+                  />
+                </label>
+                <label>
+                  <span>验证码</span>
+                  <div className="login-code-row">
+                    <input
+                      inputMode="numeric"
+                      maxLength={6}
+                      onChange={(event) => setLoginCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="6 位验证码"
+                      type="text"
+                      value={loginCode}
+                    />
+                    <button
+                      className="button button-secondary"
+                      disabled={loginStatus === 'sending'}
+                      onClick={handleSendCode}
+                      type="button"
+                    >
+                      {loginStatus === 'sending' ? '发送中' : '发送验证码'}
+                    </button>
+                  </div>
+                </label>
+                <button
+                  className="login-submit-button"
+                  disabled={loginStatus === 'logging-in'}
+                  onClick={handleLogin}
+                  type="button"
+                >
+                  {loginStatus === 'logging-in' ? '登录中' : '登录'}
+                </button>
+              </div>
+            )}
+
+            <p className={`login-message login-message-${loginStatus}`}>
+              {loginMessage || '当前过渡版验证码会打印在后端日志里，后续可直接换成阿里云短信。'}
+            </p>
           </section>
         </div>
       )}
