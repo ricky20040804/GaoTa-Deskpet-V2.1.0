@@ -2549,8 +2549,7 @@ main > .download-section:first-child {
   width: 100%;
 }
 
-.payment-hint,
-.payment-manual-note {
+.payment-hint {
   color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.55;

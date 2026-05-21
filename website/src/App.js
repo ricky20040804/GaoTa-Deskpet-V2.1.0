@@ -887,9 +887,6 @@ function App() {
                 >
                   我已付款，开始生成
                 </button>
-                <p className="payment-manual-note">
-                  当前为人工收款确认版。请确认完成付款后再开始生成，后续可替换成微信支付自动回调。
-                </p>
               </div>
             </div>
           </section>
