@@ -4,8 +4,9 @@ import './App.css';
 
 const defaultGenerationApiUrl = 'https://api.gaotadeskpet.cn/api/generate-pet-package';
 const generationApiUrl = process.env.REACT_APP_GENERATE_API_URL || defaultGenerationApiUrl;
-const generationApiBase = new URL(generationApiUrl, window.location.origin);
-const buildApiUrl = (path) => new URL(path, generationApiBase).toString();
+const apiOriginMatch = generationApiUrl.match(/^https?:\/\/[^/]+/i);
+const apiOrigin = apiOriginMatch ? apiOriginMatch[0] : '';
+const buildApiUrl = (path) => (apiOrigin ? `${apiOrigin}${path}` : path);
 const authTokenStorageKey = 'gaota_auth_token';
 
 const generationStyles = [
