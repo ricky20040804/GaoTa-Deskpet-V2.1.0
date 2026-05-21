@@ -1863,11 +1863,22 @@ main > .download-section:first-child {
 
 .download-step-card .button {
   align-self: end;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line);
+  box-shadow: none;
+  color: var(--ink);
   font-size: 0.9rem;
   justify-content: center;
   min-height: 2.7rem;
   padding: 0.75rem 1rem;
   text-align: center;
+}
+
+.download-step-card .button:hover {
+  background: linear-gradient(135deg, var(--violet), var(--blue));
+  border-color: transparent;
+  box-shadow: 0 16px 30px rgba(82, 89, 236, 0.28);
+  color: #fff;
 }
 
 .pet-generator-section,
