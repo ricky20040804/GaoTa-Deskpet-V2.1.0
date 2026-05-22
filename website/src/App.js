@@ -140,6 +140,7 @@ function App() {
   const [generationMessage, setGenerationMessage] = useState('');
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [paymentOrderId, setPaymentOrderId] = useState('');
+  const [isPaymentConfirmReady, setIsPaymentConfirmReady] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [authToken, setAuthToken] = useState(() => window.localStorage.getItem(authTokenStorageKey) || '');
   const [currentUser, setCurrentUser] = useState(null);
@@ -183,6 +184,19 @@ function App() {
       image.src = step.image;
     });
   }, []);
+
+  useEffect(() => {
+    if (!isPaymentOpen) {
+      setIsPaymentConfirmReady(false);
+      return undefined;
+    }
+
+    setIsPaymentConfirmReady(false);
+    const timer = window.setTimeout(() => {
+      setIsPaymentConfirmReady(true);
+    }, 15000);
+    return () => window.clearTimeout(timer);
+  }, [isPaymentOpen, paymentOrderId]);
 
   const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : {};
 
@@ -399,10 +413,24 @@ function App() {
     setPaymentOrderId(orderId);
     setIsPaymentOpen(true);
     setGenerationStatus('idle');
-    setGenerationMessage(`已创建订单 ${orderId}，请扫码付款后点击“我已付款，开始生成”。`);
+    setGenerationMessage(`已创建订单 ${orderId}，请扫码付款后等待订单查询完成。`);
+  };
+
+  const handlePaymentPlanSelect = (planId) => {
+    setSelectedPlan(planId);
+    if (planId === 'portrait-package') {
+      setSelectedGenerationStyle('cartoon-portrait');
+      return;
+    }
+    if (planId === 'pet-package' && selectedGenerationStyle === 'cartoon-portrait') {
+      setSelectedGenerationStyle('cartoon-pet');
+    }
   };
 
   const handleGeneratePackage = async () => {
+    if (!isPaymentConfirmReady) {
+      return;
+    }
     if (!authToken || !currentUser) {
       setGenerationStatus('error');
       setGenerationMessage('请先登录账号后再生成宠物资源包。');
@@ -866,7 +894,7 @@ function App() {
                     aria-pressed={selectedPlan === plan.id}
                     className={`payment-plan-option${selectedPlan === plan.id ? ' is-selected' : ''}`}
                     key={plan.id}
-                    onClick={() => setSelectedPlan(plan.id)}
+                    onClick={() => handlePaymentPlanSelect(plan.id)}
                     type="button"
                   >
                     <span>
@@ -895,14 +923,18 @@ function App() {
                 <img className="payment-qr" src={paymentQrCode} alt="微信收款码" />
                 <p className="payment-hint">付款时建议备注订单号后 4 位：{paymentOrderId.slice(-4)}</p>
 
-                <button
-                  className="payment-confirm-button"
-                  disabled={generationStatus === 'running'}
-                  onClick={handleGeneratePackage}
-                  type="button"
-                >
-                  我已付款，开始生成
-                </button>
+                {isPaymentConfirmReady ? (
+                  <button
+                    className="payment-confirm-button"
+                    disabled={generationStatus === 'running'}
+                    onClick={handleGeneratePackage}
+                    type="button"
+                  >
+                    我已付款，开始生成
+                  </button>
+                ) : (
+                  <p className="payment-query-status">请您支付，正在查询订单中</p>
+                )}
               </div>
             </div>
           </section>

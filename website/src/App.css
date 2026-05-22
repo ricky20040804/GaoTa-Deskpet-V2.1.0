@@ -2557,6 +2557,21 @@ main > .download-section:first-child {
   text-align: center;
 }
 
+.payment-query-status {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(142, 102, 68, 0.18);
+  border-radius: 0.95rem;
+  color: var(--muted);
+  display: flex;
+  font-weight: 850;
+  justify-content: center;
+  margin: 0;
+  min-height: 3.5rem;
+  text-align: center;
+  width: 100%;
+}
+
 .payment-confirm-button {
   align-items: center;
   background: linear-gradient(135deg, var(--violet), var(--blue));
