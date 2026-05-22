@@ -10,6 +10,22 @@ const apiOriginMatch = generationApiUrl.match(/^https?:\/\/[^/]+/i);
 const apiOrigin = apiOriginMatch ? apiOriginMatch[0] : '';
 const buildApiUrl = (path) => (apiOrigin ? `${apiOrigin}${path}` : path);
 const authTokenStorageKey = 'gaota_auth_token';
+const deviceIdStorageKey = 'gaota_device_id';
+
+const getDeviceId = () => {
+  let deviceId = window.localStorage.getItem(deviceIdStorageKey);
+  if (deviceId) {
+    return deviceId;
+  }
+
+  if (window.crypto?.randomUUID) {
+    deviceId = window.crypto.randomUUID();
+  } else {
+    deviceId = `gaota-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+  }
+  window.localStorage.setItem(deviceIdStorageKey, deviceId);
+  return deviceId;
+};
 
 const readApiResponse = async (response) => {
   const text = await response.text();
@@ -237,7 +253,7 @@ function App() {
       const response = await fetch(buildApiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(account),
+        body: JSON.stringify({ ...account, deviceId: getDeviceId() }),
       });
       const data = await readApiResponse(response);
       if (!response.ok || !data.ok) {

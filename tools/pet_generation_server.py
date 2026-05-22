@@ -24,6 +24,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -32,10 +33,27 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SUPPORTED_STYLES = {"cartoon-pet", "real-pet", "cartoon-portrait"}
 PHONE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
+VALID_PHONE_PREFIXES = {
+    "130", "131", "132", "133", "134", "135", "136", "137", "138", "139",
+    "145", "146", "147", "148", "149",
+    "150", "151", "152", "153", "155", "156", "157", "158", "159",
+    "162", "165", "166", "167",
+    "170", "171", "172", "173", "174", "175", "176", "177", "178",
+    "180", "181", "182", "183", "184", "185", "186", "187", "188",
+    "190", "191", "192", "193", "195", "196", "197", "198", "199",
+}
 SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 DEFAULT_GENERATION_LIMIT = int(os.environ.get("GAOTA_GENERATION_LIMIT", "3"))
 AUTH_DB_PATH = Path(os.environ.get("GAOTA_AUTH_DB", ROOT / "data/gaota_auth.sqlite3"))
 PASSWORD_HASH_ROUNDS = 120_000
+DEVICE_REGISTER_LIMIT = int(os.environ.get("GAOTA_DEVICE_REGISTER_LIMIT", "1"))
+RATE_LIMITS = {
+    "register": (int(os.environ.get("GAOTA_REGISTER_RATE_LIMIT", "3")), 10 * 60),
+    "login": (int(os.environ.get("GAOTA_LOGIN_RATE_LIMIT", "20")), 10 * 60),
+    "generate": (int(os.environ.get("GAOTA_GENERATE_RATE_LIMIT", "3")), 60 * 60),
+}
+RATE_BUCKETS: dict[str, list[int]] = {}
+RATE_LOCK = threading.Lock()
 
 
 def now() -> int:
@@ -68,7 +86,26 @@ def mask_phone(phone: str) -> str:
 
 
 def valid_phone(phone: str) -> bool:
-    return bool(PHONE_PATTERN.fullmatch(phone))
+    return bool(PHONE_PATTERN.fullmatch(phone)) and phone[:3] in VALID_PHONE_PREFIXES
+
+
+def valid_device_id(device_id: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z0-9_-]{16,128}", device_id))
+
+
+def device_hash(device_id: str) -> str:
+    return hash_secret(device_id)
+
+
+def rate_limited(key: str, limit: int, window_seconds: int) -> bool:
+    current_time = now()
+    with RATE_LOCK:
+        bucket = RATE_BUCKETS.setdefault(key, [])
+        bucket[:] = [timestamp for timestamp in bucket if current_time - timestamp < window_seconds]
+        if len(bucket) >= limit:
+            return True
+        bucket.append(current_time)
+        return False
 
 
 def get_db() -> sqlite3.Connection:
@@ -89,6 +126,7 @@ def init_auth_db() -> None:
                 username TEXT NOT NULL UNIQUE,
                 password_salt TEXT NOT NULL,
                 password_hash TEXT NOT NULL,
+                device_hash TEXT,
                 generation_count INTEGER NOT NULL DEFAULT 0,
                 generation_limit INTEGER NOT NULL DEFAULT 3,
                 created_at INTEGER NOT NULL
@@ -111,7 +149,10 @@ def init_auth_db() -> None:
             db.execute("ALTER TABLE users ADD COLUMN password_salt TEXT")
         if "password_hash" not in columns:
             db.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+        if "device_hash" not in columns:
+            db.execute("ALTER TABLE users ADD COLUMN device_hash TEXT")
         db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_users_device_hash ON users(device_hash) WHERE device_hash IS NOT NULL")
 
 
 def user_payload(user: sqlite3.Row) -> dict:
@@ -217,6 +258,22 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length)
         return json.loads(raw.decode("utf-8"))
 
+    def client_ip(self) -> str:
+        forwarded = self.headers.get("X-Forwarded-For", "")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        real_ip = self.headers.get("X-Real-IP", "").strip()
+        if real_ip:
+            return real_ip
+        return self.client_address[0]
+
+    def check_rate_limit(self, action: str, message: str) -> bool:
+        limit, window_seconds = RATE_LIMITS[action]
+        if rate_limited(f"{action}:{self.client_ip()}", limit, window_seconds):
+            self.send_json(429, {"ok": False, "message": message})
+            return False
+        return True
+
     def bearer_token(self) -> str:
         header = self.headers.get("Authorization", "")
         if not header.startswith("Bearer "):
@@ -249,6 +306,8 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
             return
         if self.path != "/api/generate-pet-package":
             self.send_plain_error(404, "接口不存在。")
+            return
+        if not self.check_rate_limit("generate", "生成请求太频繁，请稍后再试。"):
             return
 
         user = self.current_user()
@@ -336,17 +395,21 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
             shutil.rmtree(work_dir, ignore_errors=True)
 
     def handle_register(self) -> None:
+        if not self.check_rate_limit("register", "注册太频繁，请稍后再试。"):
+            return
+
         try:
             payload = self.read_json()
             phone = str(payload.get("phone", "")).strip()
             username = str(payload.get("username", "")).strip()
             password = str(payload.get("password", ""))
+            device_id = str(payload.get("deviceId", "")).strip()
         except Exception:
             self.send_json(400, {"ok": False, "message": "请求格式不正确。"})
             return
 
         if not valid_phone(phone):
-            self.send_json(400, {"ok": False, "message": "请输入正确的中国大陆手机号。"})
+            self.send_json(400, {"ok": False, "message": "请输入真实有效的中国大陆手机号。"})
             return
         if not valid_username(username):
             self.send_json(400, {"ok": False, "message": "用户名需要 2 到 20 个字符。"})
@@ -354,11 +417,22 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
         if not valid_password(password):
             self.send_json(400, {"ok": False, "message": "密码需要 6 到 64 个字符。"})
             return
+        if not valid_device_id(device_id):
+            self.send_json(400, {"ok": False, "message": "当前设备信息异常，请刷新页面后重试。"})
+            return
 
         current_time = now()
         salt = secrets.token_hex(16)
         password_hash = hash_password(password, salt)
+        current_device_hash = device_hash(device_id)
         with get_db() as db:
+            device_register_count = db.execute(
+                "SELECT COUNT(*) AS count FROM users WHERE device_hash = ?",
+                (current_device_hash,),
+            ).fetchone()["count"]
+            if int(device_register_count) >= DEVICE_REGISTER_LIMIT:
+                self.send_json(429, {"ok": False, "message": "当前设备注册次数已达上限，请直接登录已有账号。"})
+                return
             existing_phone = db.execute("SELECT id FROM users WHERE phone = ?", (phone,)).fetchone()
             if existing_phone:
                 self.send_json(409, {"ok": False, "message": "这个手机号已经注册过，请直接登录。"})
@@ -369,10 +443,10 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
                 return
             cursor = db.execute(
                 """
-                INSERT INTO users(phone, username, password_salt, password_hash, generation_count, generation_limit, created_at)
-                VALUES (?, ?, ?, ?, 0, ?, ?)
+                INSERT INTO users(phone, username, password_salt, password_hash, device_hash, generation_count, generation_limit, created_at)
+                VALUES (?, ?, ?, ?, ?, 0, ?, ?)
                 """,
-                (phone, username, salt, password_hash, DEFAULT_GENERATION_LIMIT, current_time),
+                (phone, username, salt, password_hash, current_device_hash, DEFAULT_GENERATION_LIMIT, current_time),
             )
             user = db.execute("SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)).fetchone()
             token = create_session(db, int(user["id"]))
@@ -380,6 +454,9 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
         self.send_json(200, {"ok": True, "token": token, "user": user_payload(user)})
 
     def handle_login(self) -> None:
+        if not self.check_rate_limit("login", "登录太频繁，请稍后再试。"):
+            return
+
         try:
             payload = self.read_json()
             phone = str(payload.get("phone", "")).strip()
@@ -389,7 +466,7 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
             return
 
         if not valid_phone(phone):
-            self.send_json(400, {"ok": False, "message": "请输入正确的中国大陆手机号。"})
+            self.send_json(400, {"ok": False, "message": "请输入真实有效的中国大陆手机号。"})
             return
         if not valid_password(password):
             self.send_json(400, {"ok": False, "message": "请输入 6 到 64 位密码。"})
