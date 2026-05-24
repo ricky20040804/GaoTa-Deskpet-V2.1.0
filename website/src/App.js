@@ -72,13 +72,13 @@ const generationPlans = [
   {
     id: 'complete-package',
     title: '全套完整包',
-    price: '¥19.7',
+    price: '¥12.9',
     text: '真实版宠物、卡通版宠物或卡通版人像，并附带网页代码，联系客服，教你如何从0设计你的专属宠物网站。',
   },
   {
     id: 'portrait-package',
     title: '卡通人像包',
-    price: '¥19.7',
+    price: '¥12.9',
     text: '卡通版人像生成资源包。',
   },
 ];
@@ -94,7 +94,11 @@ const generationProgressMessages = [
   '正在打包 custompet.zip...'
 ];
 
-const paymentQrCode = '/payment/wechat-pay.JPG';
+const paymentQrCodes = {
+  'pet-package': '/payment/9.9.JPG',
+  'complete-package': '/payment/12.7.JPG',
+  'portrait-package': '/payment/12.7.JPG',
+};
 
 const tutorialSteps = [
   {
@@ -153,6 +157,7 @@ function App() {
 
   const selectedPlanDetails = generationPlans.find((plan) => plan.id === selectedPlan) || generationPlans[0];
   const selectedStyleDetails = generationStyles.find((style) => style.id === selectedGenerationStyle) || generationStyles[0];
+  const selectedPaymentQrCode = paymentQrCodes[selectedPlan] || paymentQrCodes['pet-package'];
 
   useEffect(() => {
     if (!petPhoto) {
@@ -920,7 +925,7 @@ function App() {
                   <strong>{selectedPlanDetails.price}</strong>
                 </div>
 
-                <img className="payment-qr" src={paymentQrCode} alt="微信收款码" />
+                <img className="payment-qr" src={selectedPaymentQrCode} alt="微信收款码" />
                 <p className="payment-hint">付款时建议备注订单号后 4 位：{paymentOrderId.slice(-4)}</p>
 
                 {isPaymentConfirmReady ? (
