@@ -33,6 +33,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SUPPORTED_STYLES = {"cartoon-pet", "real-pet", "cartoon-portrait"}
 SUPPORTED_PLANS = {"pet-package", "complete-package", "portrait-package"}
+ALLOWED_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
+ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp"}
+MAX_UPLOAD_BYTES = int(os.environ.get("GAOTA_MAX_UPLOAD_BYTES", str(15 * 1024 * 1024)))
+MAX_REQUEST_BYTES = MAX_UPLOAD_BYTES + int(os.environ.get("GAOTA_MAX_MULTIPART_OVERHEAD_BYTES", str(1024 * 1024)))
 PHONE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
 VALID_PHONE_PREFIXES = {
     "130", "131", "132", "133", "134", "135", "136", "137", "138", "139",
@@ -107,6 +111,53 @@ def rate_limited(key: str, limit: int, window_seconds: int) -> bool:
             return True
         bucket.append(current_time)
         return False
+
+
+def valid_image_upload(filename: str, content_type: str) -> bool:
+    suffix = Path(filename).suffix.lower()
+    mime_type = content_type.split(";", 1)[0].strip().lower()
+    return suffix in ALLOWED_IMAGE_SUFFIXES and mime_type in ALLOWED_IMAGE_TYPES
+
+
+def copy_upload_file(upload, destination: Path) -> None:
+    total_bytes = 0
+    with destination.open("wb") as file:
+        while True:
+            chunk = upload.file.read(1024 * 1024)
+            if not chunk:
+                break
+            total_bytes += len(chunk)
+            if total_bytes > MAX_UPLOAD_BYTES:
+                raise ValueError("uploaded image is too large")
+            file.write(chunk)
+
+
+def reserve_generation(user_id: int) -> bool:
+    with get_db() as db:
+        cursor = db.execute(
+            """
+            UPDATE users
+            SET generation_count = generation_count + 1
+            WHERE id = ? AND generation_count < generation_limit
+            """,
+            (user_id,),
+        )
+        return cursor.rowcount == 1
+
+
+def refund_generation(user_id: int) -> None:
+    with get_db() as db:
+        db.execute(
+            """
+            UPDATE users
+            SET generation_count = CASE
+                WHEN generation_count > 0 THEN generation_count - 1
+                ELSE 0
+            END
+            WHERE id = ?
+            """,
+            (user_id,),
+        )
 
 
 def get_db() -> sqlite3.Connection:
@@ -310,6 +361,14 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
             return
         if not self.check_rate_limit("generate", "生成请求太频繁，请稍后再试。"):
             return
+        try:
+            request_length = int(self.headers.get("Content-Length", "0") or "0")
+        except ValueError:
+            self.send_plain_error(400, "上传请求格式不正确。")
+            return
+        if request_length > MAX_REQUEST_BYTES:
+            self.send_plain_error(413, "图片文件太大，请上传 15MB 以内的 PNG、JPG 或 WEBP 图片。")
+            return
 
         user = self.current_user()
         if not user:
@@ -324,6 +383,8 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
             return
 
         work_dir = Path(tempfile.mkdtemp(prefix="gaota-pet-api-"))
+        generation_reserved = False
+        user_id = int(user["id"])
         try:
             form = cgi.FieldStorage(
                 fp=self.rfile,
@@ -338,10 +399,17 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
                 self.send_plain_error(400, "请先上传一张宠物照片。")
                 return
 
-            suffix = Path(photo.filename).suffix or ".png"
+            if not valid_image_upload(photo.filename, getattr(photo, "type", "") or ""):
+                self.send_plain_error(400, "请上传 PNG、JPG 或 WEBP 格式的图片。")
+                return
+
+            suffix = Path(photo.filename).suffix.lower()
             photo_path = work_dir / f"upload{suffix}"
-            with photo_path.open("wb") as file:
-                shutil.copyfileobj(photo.file, file)
+            try:
+                copy_upload_file(photo, photo_path)
+            except ValueError:
+                self.send_plain_error(413, "图片文件太大，请上传 15MB 以内的 PNG、JPG 或 WEBP 图片。")
+                return
 
             style = form.getfirst("style", "cartoon-pet")
             if style not in SUPPORTED_STYLES:
@@ -351,6 +419,11 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
             if plan not in SUPPORTED_PLANS:
                 self.send_plain_error(400, "这个生成方案暂时不支持，请重新选择。")
                 return
+
+            if not reserve_generation(user_id):
+                self.send_plain_error(403, "当前账号的生成次数已经用完。")
+                return
+            generation_reserved = True
 
             package_dir = work_dir / "custompet"
             zip_path = work_dir / "custompet.zip"
@@ -381,22 +454,22 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
             if completed.stdout:
                 print(completed.stdout, flush=True)
             if completed.returncode != 0:
+                refund_generation(user_id)
+                generation_reserved = False
                 self.send_plain_error(500, friendly_generation_error(completed.stdout, completed.returncode))
                 return
 
             data = zip_path.read_bytes()
-            with get_db() as db:
-                db.execute(
-                    "UPDATE users SET generation_count = generation_count + 1 WHERE id = ?",
-                    (int(user["id"]),),
-                )
             self.send_response(200)
             self.send_header("Content-Type", "application/zip")
             self.send_header("Content-Disposition", 'attachment; filename="custompet.zip"')
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
+            generation_reserved = False
         except Exception as error:
+            if generation_reserved:
+                refund_generation(user_id)
             self.send_plain_error(500, f"服务器处理生成任务时出错：{error}")
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)

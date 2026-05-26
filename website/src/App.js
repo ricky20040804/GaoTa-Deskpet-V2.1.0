@@ -11,6 +11,8 @@ const apiOrigin = apiOriginMatch ? apiOriginMatch[0] : '';
 const buildApiUrl = (path) => (apiOrigin ? `${apiOrigin}${path}` : path);
 const authTokenStorageKey = 'gaota_auth_token';
 const deviceIdStorageKey = 'gaota_device_id';
+const maxUploadBytes = 15 * 1024 * 1024;
+const allowedUploadTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
 
 const getDeviceId = () => {
   let deviceId = window.localStorage.getItem(deviceIdStorageKey);
@@ -381,7 +383,22 @@ function App() {
 
   const handlePetPhotoChange = (event) => {
     const file = event.target.files?.[0];
+    if (file && !allowedUploadTypes.has(file.type)) {
+      event.target.value = '';
+      setPetPhoto(null);
+      setGenerationStatus('error');
+      setGenerationMessage('请上传 PNG、JPG 或 WEBP 格式的图片。');
+      return;
+    }
+    if (file && file.size > maxUploadBytes) {
+      event.target.value = '';
+      setPetPhoto(null);
+      setGenerationStatus('error');
+      setGenerationMessage('图片文件太大，请上传 15MB 以内的图片。');
+      return;
+    }
     setPetPhoto(file || null);
+    setGenerationStatus('idle');
     setGenerationMessage(file ? `已选择：${file.name}` : '');
   };
 
