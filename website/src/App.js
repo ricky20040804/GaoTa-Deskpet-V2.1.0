@@ -72,8 +72,8 @@ const generationPlans = [
   {
     id: 'complete-package',
     title: '全套完整包',
-    price: '¥12.9',
-    text: '真实版宠物、卡通版宠物或卡通版人像，并附带网页代码，联系客服，教你如何从0设计你的专属宠物网站。',
+    price: '¥19.9',
+    text: '真实版宠物、卡通版宠物或卡通版人像，附带app源代码。',
   },
   {
     id: 'portrait-package',
@@ -96,8 +96,8 @@ const generationProgressMessages = [
 
 const paymentQrCodes = {
   'pet-package': '/payment/9.9.JPG',
-  'complete-package': '/payment/12.7.JPG',
-  'portrait-package': '/payment/12.7.JPG',
+  'complete-package': '/payment/19.9.JPG',
+  'portrait-package': '/payment/12.9.JPG',
 };
 
 const tutorialSteps = [

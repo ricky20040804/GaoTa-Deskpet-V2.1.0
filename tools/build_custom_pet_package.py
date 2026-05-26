@@ -157,6 +157,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--actions", nargs="+", choices=DEFAULT_ACTIONS, default=DEFAULT_ACTIONS)
     parser.add_argument("--alpha-mov", action="store_true", help="Also create alpha mov files for compatibility testing.")
     parser.add_argument("--hevc-alpha", action="store_true", help="Convert alpha mov files to HEVC with Alpha and package those instead of mp4.")
+    parser.add_argument("--include-windows-main-js", action="store_true", help="Include only windows-player/src/main.js in the generated package.")
     parser.add_argument("--skip-hevc", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--skip-background-check", action="store_true", help="Skip green background validation.")
     parser.add_argument("--similarity", type=float, default=0.22)
@@ -240,6 +241,12 @@ def main() -> int:
             for temporary_video in (package_dir / f"{action}.mov", package_dir / f"{action}.mp4"):
                 if temporary_video.exists():
                     temporary_video.unlink()
+
+    if args.include_windows_main_js:
+        source_main_js = ROOT / "windows-player/src/main.js"
+        if not source_main_js.exists():
+            raise RuntimeError("Cannot include Windows source file: windows-player/src/main.js was not found")
+        shutil.copy2(source_main_js, package_dir / "main.js")
 
     zip_directory(package_dir, args.zip_path.resolve())
     print(f"Done. Package written to: {args.zip_path.resolve()}")

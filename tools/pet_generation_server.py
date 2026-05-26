@@ -32,6 +32,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SUPPORTED_STYLES = {"cartoon-pet", "real-pet", "cartoon-portrait"}
+SUPPORTED_PLANS = {"pet-package", "complete-package", "portrait-package"}
 PHONE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
 VALID_PHONE_PREFIXES = {
     "130", "131", "132", "133", "134", "135", "136", "137", "138", "139",
@@ -346,6 +347,10 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
             if style not in SUPPORTED_STYLES:
                 self.send_plain_error(400, "这个生成风格暂时不支持，请重新选择。")
                 return
+            plan = form.getfirst("plan", "pet-package")
+            if plan not in SUPPORTED_PLANS:
+                self.send_plain_error(400, "这个生成方案暂时不支持，请重新选择。")
+                return
 
             package_dir = work_dir / "custompet"
             zip_path = work_dir / "custompet.zip"
@@ -364,6 +369,8 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
                 command.append("--alpha-mov")
             if os.environ.get("GAOTA_HEVC_ALPHA") == "1":
                 command.append("--hevc-alpha")
+            if plan == "complete-package":
+                command.append("--include-windows-main-js")
             completed = subprocess.run(
                 command,
                 cwd=ROOT,
