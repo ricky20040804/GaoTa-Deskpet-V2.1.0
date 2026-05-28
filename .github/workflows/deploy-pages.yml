@@ -22,24 +22,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: windows-player/package-lock.json
-
-      - name: Install Windows player dependencies
-        working-directory: windows-player
-        run: npm ci
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Build Windows player
-        working-directory: windows-player
-        run: npm run pack
+        run: cargo build --release --manifest-path windows-tauri-player/src-tauri/Cargo.toml
 
       - name: Zip Windows player
         shell: pwsh
-        run: Compress-Archive -Path windows-player/dist/* -DestinationPath gaotadeskpet-windows.zip -Force
+        run: |
+          $exe = Get-ChildItem windows-tauri-player/src-tauri/target/release -Filter *.exe | Select-Object -First 1
+          if (-not $exe) { throw "Tauri build did not produce a Windows exe." }
+          Copy-Item $exe.FullName GaoTa-Deskpet-Windows.exe
+          Compress-Archive -Path GaoTa-Deskpet-Windows.exe -DestinationPath gaotadeskpet-windows.zip -Force
 
       - name: Upload Windows runner
         uses: actions/upload-artifact@v4

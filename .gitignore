@@ -26,6 +26,8 @@ node_modules/
 dist/
 windows-player/dist/
 windows-player/node_modules/
+windows-tauri-player/node_modules/
+windows-tauri-player/src-tauri/target/
 
 # Sparkle
 *.dmg

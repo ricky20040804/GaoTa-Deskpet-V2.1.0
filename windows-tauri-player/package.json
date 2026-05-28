@@ -1,0 +1,10 @@
+{
+  "name": "gaota-deskpet-windows-tauri",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Lightweight Windows runner for GaoTa Deskpet using Tauri and WebView2.",
+  "type": "module",
+  "scripts": {
+    "build": "cargo build --release --manifest-path src-tauri/Cargo.toml"
+  }
+}

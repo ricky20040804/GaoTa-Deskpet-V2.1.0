@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' asset: http://asset.localhost; media-src 'self' asset: http://asset.localhost file:; img-src 'self' data: asset: http://asset.localhost; style-src 'self'; script-src 'self'; connect-src https: asset: http://asset.localhost;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GaoTa Deskpet</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main id="app">
+      <section id="chatPanel" class="chat-panel" hidden>
+        <header class="chat-header">
+          <div>
+            <strong>豆包聊天</strong>
+            <span id="chatStatus">准备就绪</span>
+          </div>
+          <button id="settingsButton" class="icon-button" type="button" title="豆包 API 设置">设置</button>
+          <button id="closeChatButton" class="icon-button" type="button" title="关闭聊天">关闭</button>
+        </header>
+
+        <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+
+        <form id="chatForm" class="chat-form">
+          <textarea id="chatInput" rows="2" placeholder="和桌宠说点什么"></textarea>
+          <button id="sendButton" type="submit">发送</button>
+        </form>
+      </section>
+
+      <section id="settingsPanel" class="settings-panel" hidden>
+        <form id="settingsForm" class="settings-card">
+          <header>
+            <strong>豆包 API 设置</strong>
+            <button id="closeSettingsButton" class="icon-button" type="button" title="关闭设置">关闭</button>
+          </header>
+
+          <label>
+            <span>Base URL</span>
+            <input id="baseUrlInput" type="text" placeholder="https://ark.cn-beijing.volces.com/api/v3" />
+          </label>
+
+          <label>
+            <span>API Key</span>
+            <input id="apiKeyInput" type="password" placeholder="输入你的 Ark API Key" />
+          </label>
+
+          <label>
+            <span>Endpoint / Model</span>
+            <input id="modelInput" type="text" placeholder="填写火山方舟推理接入点 ID" />
+          </label>
+
+          <label>
+            <span>System Prompt</span>
+            <textarea id="systemPromptInput" rows="3" placeholder="可选：给宠物一个固定人设"></textarea>
+          </label>
+
+          <p>也可以通过环境变量配置：ARK_API_KEY、ARK_BASE_URL、ARK_MODEL。</p>
+          <button type="submit">保存</button>
+        </form>
+      </section>
+
+      <video id="petVideo" muted playsinline preload="auto"></video>
+      <canvas id="petCanvas" width="420" height="420"></canvas>
+
+      <section id="emptyState" class="empty-state" hidden>
+        <strong>没有找到宠物资源</strong>
+        <span>请把 custompet 解压到“下载”文件夹后，右键选择重新读取。</span>
+      </section>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
