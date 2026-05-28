@@ -132,34 +132,6 @@ def copy_upload_file(upload, destination: Path) -> None:
             file.write(chunk)
 
 
-def reserve_generation(user_id: int) -> bool:
-    with get_db() as db:
-        cursor = db.execute(
-            """
-            UPDATE users
-            SET generation_count = generation_count + 1
-            WHERE id = ? AND generation_count < generation_limit
-            """,
-            (user_id,),
-        )
-        return cursor.rowcount == 1
-
-
-def refund_generation(user_id: int) -> None:
-    with get_db() as db:
-        db.execute(
-            """
-            UPDATE users
-            SET generation_count = CASE
-                WHEN generation_count > 0 THEN generation_count - 1
-                ELSE 0
-            END
-            WHERE id = ?
-            """,
-            (user_id,),
-        )
-
-
 def get_db() -> sqlite3.Connection:
     AUTH_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(AUTH_DB_PATH)
@@ -370,21 +342,11 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
             self.send_plain_error(413, "图片文件太大，请上传 15MB 以内的 PNG、JPG 或 WEBP 图片。")
             return
 
-        user = self.current_user()
-        if not user:
-            self.send_plain_error(401, "请先登录账号后再生成宠物资源包。")
-            return
-        if int(user["generation_count"]) >= int(user["generation_limit"]):
-            self.send_plain_error(403, "当前账号的生成次数已经用完。")
-            return
-
         if not os.environ.get("DASHSCOPE_API_KEY"):
             self.send_plain_error(500, "服务器还没有配置生成 API Key，请稍后再试。")
             return
 
         work_dir = Path(tempfile.mkdtemp(prefix="gaota-pet-api-"))
-        generation_reserved = False
-        user_id = int(user["id"])
         try:
             form = cgi.FieldStorage(
                 fp=self.rfile,
@@ -420,11 +382,6 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
                 self.send_plain_error(400, "这个生成方案暂时不支持，请重新选择。")
                 return
 
-            if not reserve_generation(user_id):
-                self.send_plain_error(403, "当前账号的生成次数已经用完。")
-                return
-            generation_reserved = True
-
             package_dir = work_dir / "custompet"
             zip_path = work_dir / "custompet.zip"
             command = [
@@ -454,8 +411,6 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
             if completed.stdout:
                 print(completed.stdout, flush=True)
             if completed.returncode != 0:
-                refund_generation(user_id)
-                generation_reserved = False
                 self.send_plain_error(500, friendly_generation_error(completed.stdout, completed.returncode))
                 return
 
@@ -466,10 +421,7 @@ class PetGenerationHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
-            generation_reserved = False
         except Exception as error:
-            if generation_reserved:
-                refund_generation(user_id)
             self.send_plain_error(500, f"服务器处理生成任务时出错：{error}")
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)

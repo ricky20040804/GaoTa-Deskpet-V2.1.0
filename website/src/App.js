@@ -286,7 +286,7 @@ function App() {
       setIsLoginOpen(false);
       setLoginPassword('');
       setLoginStatus('idle');
-      setGenerationMessage(`注册成功：${data.user.username}，当前账号最多可付费生成 ${data.user.generationLimit} 次。`);
+      setGenerationMessage(`注册成功：${data.user.username}。不登录也可以生成，登录只是方便你保留账号信息。`);
     } catch (error) {
       setLoginStatus('error');
       setLoginMessage(error.message || '注册失败。');
@@ -317,7 +317,7 @@ function App() {
       setIsLoginOpen(false);
       setLoginPassword('');
       setLoginStatus('idle');
-      setGenerationMessage(`已登录：${data.user.username}，剩余付费生成次数 ${data.user.remainingGenerations}/${data.user.generationLimit}。`);
+      setGenerationMessage(`已登录：${data.user.username}。`);
     } catch (error) {
       setLoginStatus('error');
       setLoginMessage(error.message || '登录失败。');
@@ -414,17 +414,6 @@ function App() {
   };
 
   const createPaymentOrder = () => {
-    if (!currentUser) {
-      setGenerationStatus('error');
-      setGenerationMessage('请先登录账号后再生成宠物资源包。');
-      openLogin();
-      return;
-    }
-    if (currentUser.remainingGenerations <= 0) {
-      setGenerationStatus('error');
-      setGenerationMessage('当前账号的生成次数已经用完。');
-      return;
-    }
     if (!petPhoto) {
       setGenerationStatus('error');
       setGenerationMessage('请先上传一张宠物照片。');
@@ -451,12 +440,6 @@ function App() {
 
   const handleGeneratePackage = async () => {
     if (!isPaymentConfirmReady) {
-      return;
-    }
-    if (!authToken || !currentUser) {
-      setGenerationStatus('error');
-      setGenerationMessage('请先登录账号后再生成宠物资源包。');
-      openLogin();
       return;
     }
     if (!petPhoto) {
@@ -570,9 +553,9 @@ function App() {
               <span className="hero-action-subtitle">View Tutorial</span>
             </button>
             <button className="button button-secondary" onClick={openLogin} type="button">
-              <span className="hero-action-title">记得先登录哟</span>
+              <span className="hero-action-title">账号登录</span>
               <span className="hero-action-subtitle">
-                {currentUser ? `剩余 ${currentUser.remainingGenerations}/${currentUser.generationLimit}` : 'Login First'}
+                {currentUser ? currentUser.username : 'Optional'}
               </span>
             </button>
           </div>
@@ -695,9 +678,7 @@ function App() {
               <span aria-hidden="true">→</span>
             </button>
             <p className={`generator-note generator-note-${generationStatus}`}>
-              {generationMessage || (currentUser
-                ? `当前账号剩余付费生成次数：${currentUser.remainingGenerations}/${currentUser.generationLimit}。生成后的 custompet.zip 请您务必解压到“下载”文件夹，这样运行器才能成功读取。`
-                : '请先登录账号。生成后的 custompet.zip 解压到“下载”文件夹后，桌面运行器会自动读取 mp4 并实时扣绿播放。')}
+              {generationMessage || '生成后的 custompet.zip 请您务必解压到“下载”文件夹，这样运行器才能成功读取。登录不是必需的。'}
             </p>
           </div>
         </section>
@@ -791,14 +772,13 @@ function App() {
 
             <p className="eyebrow">Login</p>
             <h2>账号登录</h2>
-            <p className="login-copy">每个账号最多可付费生成 3 次宠物资源包。</p>
+            <p className="login-copy">登录是可选功能，不登录也可以付款并生成宠物资源包。</p>
 
             {currentUser ? (
               <div className="login-account-card">
                 <span>当前已登录</span>
                 <strong>{currentUser.username}</strong>
                 <span>{currentUser.maskedPhone}</span>
-                <span>剩余付费生成次数：{currentUser.remainingGenerations}/{currentUser.generationLimit}</span>
                 <button className="button button-secondary" onClick={handleLogout} type="button">
                   退出登录
                 </button>
@@ -879,7 +859,7 @@ function App() {
             )}
 
             <p className={`login-message login-message-${loginStatus}`}>
-              {loginMessage || '注册后请先付款，再生成宠物资源包；每个账号最多可付费生成 3 次。'}
+              {loginMessage || '登录是可选功能；不登录也可以付款并生成宠物资源包。'}
             </p>
           </section>
         </div>
