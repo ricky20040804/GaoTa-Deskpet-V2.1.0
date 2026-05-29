@@ -18,8 +18,6 @@ concurrency:
 jobs:
   windows-runner:
     runs-on: windows-latest
-    outputs:
-      runner_uploaded: ${{ steps.runner-artifact.outputs.uploaded }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,7 +27,6 @@ jobs:
 
       - name: Build Tauri Windows player
         id: build_windows
-        continue-on-error: true
         shell: pwsh
         run: |
           cargo build --release --manifest-path windows-tauri-player/src-tauri/Cargo.toml *>&1 | Tee-Object windows-build.log
@@ -47,34 +44,37 @@ jobs:
       - name: Zip Windows player
         shell: pwsh
         run: |
-          $exe = Get-ChildItem windows-tauri-player/src-tauri/target/release -Filter *.exe | Select-Object -First 1
+          $searchRoots = @("windows-tauri-player/src-tauri/target/release", "target/release")
+          $exe = $null
+          foreach ($root in $searchRoots) {
+            if (Test-Path $root) {
+              $exe = Get-ChildItem $root -Filter *.exe -Recurse |
+                Where-Object { $_.FullName -notmatch "\\deps\\" -and $_.FullName -notmatch "\\build\\" } |
+                Select-Object -First 1
+              if ($exe) {
+                break
+              }
+            }
+          }
           if (-not $exe) {
-            Write-Host "Tauri build did not produce a Windows exe; keeping existing website download."
-            exit 0
+            Write-Host "Tauri build did not produce a Windows exe. Target contents:"
+            Get-ChildItem windows-tauri-player/src-tauri/target -Recurse -ErrorAction SilentlyContinue |
+              Select-Object -First 200 |
+              ForEach-Object { Write-Host $_.FullName }
+            exit 1
           }
           Copy-Item $exe.FullName GaoTa-Deskpet-Windows.exe
           Compress-Archive -Path GaoTa-Deskpet-Windows.exe -DestinationPath gaotadeskpet-windows.zip -Force
 
-      - name: Mark Windows runner artifact
-        id: runner-artifact
-        shell: pwsh
-        run: |
-          if (Test-Path gaotadeskpet-windows.zip) {
-            "uploaded=true" >> $env:GITHUB_OUTPUT
-          } else {
-            "uploaded=false" >> $env:GITHUB_OUTPUT
-          }
-
       - name: Upload Windows runner
-        if: steps.runner-artifact.outputs.uploaded == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: windows-runner
           path: gaotadeskpet-windows.zip
+          if-no-files-found: error
 
   build:
     needs: windows-runner
-    if: always()
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -94,18 +94,10 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Download Windows runner
-        if: needs.windows-runner.outputs.runner_uploaded == 'true'
         uses: actions/download-artifact@v4
         with:
           name: windows-runner
           path: website/public/downloads
-
-      - name: Preserve existing Windows runner
-        run: |
-          mkdir -p public/downloads
-          if [ ! -f public/downloads/gaotadeskpet-windows.zip ]; then
-            curl -L --fail --retry 3 https://www.gaotadeskpet.cn/downloads/gaotadeskpet-windows.zip -o public/downloads/gaotadeskpet-windows.zip || true
-          fi
 
       - name: Build website
         run: npm run build
