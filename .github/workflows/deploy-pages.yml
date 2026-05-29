@@ -27,7 +27,20 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Tauri Windows player
-        run: cargo build --release --manifest-path windows-tauri-player/src-tauri/Cargo.toml
+        id: build-windows
+        shell: pwsh
+        run: |
+          cargo build --release --manifest-path windows-tauri-player/src-tauri/Cargo.toml *>&1 | Tee-Object windows-build.log
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Upload Windows build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-log
+          path: windows-build.log
 
       - name: Zip Windows player
         shell: pwsh
