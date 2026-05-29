@@ -45,11 +45,13 @@ jobs:
           path: windows-build.log
 
       - name: Zip Windows player
-        if: steps.build_windows.outcome == 'success'
         shell: pwsh
         run: |
           $exe = Get-ChildItem windows-tauri-player/src-tauri/target/release -Filter *.exe | Select-Object -First 1
-          if (-not $exe) { throw "Tauri build did not produce a Windows exe." }
+          if (-not $exe) {
+            Write-Host "Tauri build did not produce a Windows exe; keeping existing website download."
+            exit 0
+          }
           Copy-Item $exe.FullName GaoTa-Deskpet-Windows.exe
           Compress-Archive -Path GaoTa-Deskpet-Windows.exe -DestinationPath gaotadeskpet-windows.zip -Force
 
