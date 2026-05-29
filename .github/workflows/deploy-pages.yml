@@ -27,10 +27,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Tauri Windows player
-        uses: tauri-apps/tauri-action@v0
-        with:
-          projectPath: windows-tauri-player
-          args: --bundles nsis
+        run: cargo build --release --manifest-path windows-tauri-player/src-tauri/Cargo.toml
 
       - name: Zip Windows player
         shell: pwsh
