@@ -18,7 +18,8 @@ concurrency:
 jobs:
   windows-runner:
     runs-on: windows-latest
-    continue-on-error: true
+    outputs:
+      runner_uploaded: ${{ steps.runner-artifact.outputs.uploaded }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,6 +29,7 @@ jobs:
 
       - name: Build Tauri Windows player
         id: build-windows
+        continue-on-error: true
         shell: pwsh
         run: |
           cargo build --release --manifest-path windows-tauri-player/src-tauri/Cargo.toml *>&1 | Tee-Object windows-build.log
@@ -43,6 +45,7 @@ jobs:
           path: windows-build.log
 
       - name: Zip Windows player
+        if: steps.build-windows.outcome == 'success'
         shell: pwsh
         run: |
           $exe = Get-ChildItem windows-tauri-player/src-tauri/target/release -Filter *.exe | Select-Object -First 1
@@ -50,7 +53,18 @@ jobs:
           Copy-Item $exe.FullName GaoTa-Deskpet-Windows.exe
           Compress-Archive -Path GaoTa-Deskpet-Windows.exe -DestinationPath gaotadeskpet-windows.zip -Force
 
+      - name: Mark Windows runner artifact
+        id: runner-artifact
+        shell: pwsh
+        run: |
+          if (Test-Path gaotadeskpet-windows.zip) {
+            "uploaded=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "uploaded=false" >> $env:GITHUB_OUTPUT
+          }
+
       - name: Upload Windows runner
+        if: steps.runner-artifact.outputs.uploaded == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: windows-runner
@@ -78,8 +92,8 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Download Windows runner
+        if: needs.windows-runner.outputs.runner_uploaded == 'true'
         uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
           name: windows-runner
           path: website/public/downloads

@@ -5,10 +5,6 @@ description = "GaoTa Deskpet lightweight Windows runner"
 authors = ["GaoTa Deskpet"]
 edition = "2021"
 
-[lib]
-name = "gaota_deskpet_windows_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
-
 [build-dependencies]
 tauri-build = { version = "2" }
 
