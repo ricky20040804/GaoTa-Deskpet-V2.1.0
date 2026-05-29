@@ -16,7 +16,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  windows-runner:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Tauri Windows player
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: windows-tauri-player
+          args: --bundles nsis
+
+      - name: Zip Windows player
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem windows-tauri-player/src-tauri/target/release -Filter *.exe | Select-Object -First 1
+          if (-not $exe) { throw "Tauri build did not produce a Windows exe." }
+          Copy-Item $exe.FullName GaoTa-Deskpet-Windows.exe
+          Compress-Archive -Path GaoTa-Deskpet-Windows.exe -DestinationPath gaotadeskpet-windows.zip -Force
+
+      - name: Upload Windows runner
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-runner
+          path: gaotadeskpet-windows.zip
+
   build:
+    needs: windows-runner
+    if: always()
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -35,10 +67,19 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Download Windows runner
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: windows-runner
+          path: website/public/downloads
+
       - name: Preserve existing Windows runner
         run: |
           mkdir -p public/downloads
-          curl -L --fail --retry 3 https://www.gaotadeskpet.cn/downloads/gaotadeskpet-windows.zip -o public/downloads/gaotadeskpet-windows.zip || true
+          if [ ! -f public/downloads/gaotadeskpet-windows.zip ]; then
+            curl -L --fail --retry 3 https://www.gaotadeskpet.cn/downloads/gaotadeskpet-windows.zip -o public/downloads/gaotadeskpet-windows.zip || true
+          fi
 
       - name: Build website
         run: npm run build
