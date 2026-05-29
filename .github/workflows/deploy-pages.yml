@@ -28,7 +28,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Tauri Windows player
-        id: build-windows
+        id: build_windows
         continue-on-error: true
         shell: pwsh
         run: |
@@ -45,7 +45,7 @@ jobs:
           path: windows-build.log
 
       - name: Zip Windows player
-        if: steps.build-windows.outcome == 'success'
+        if: steps.build_windows.outcome == 'success'
         shell: pwsh
         run: |
           $exe = Get-ChildItem windows-tauri-player/src-tauri/target/release -Filter *.exe | Select-Object -First 1
