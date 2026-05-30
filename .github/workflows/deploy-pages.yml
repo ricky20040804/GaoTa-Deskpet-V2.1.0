@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   windows-runner:
@@ -25,14 +25,17 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2" --locked
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
       - name: Build Tauri Windows player
         id: build_windows
         shell: pwsh
         run: |
-          cargo tauri build --no-bundle *>&1 | Tee-Object ../windows-build.log
+          npm install @tauri-apps/cli@^2 --no-save
+          npx tauri build --no-bundle *>&1 | Tee-Object ../windows-build.log
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
