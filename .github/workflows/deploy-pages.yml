@@ -25,14 +25,18 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
       - name: Build Tauri Windows player
         id: build_windows
         shell: pwsh
         run: |
-          cargo build --release --manifest-path windows-tauri-player/src-tauri/Cargo.toml *>&1 | Tee-Object windows-build.log
+          cargo tauri build --no-bundle *>&1 | Tee-Object ../windows-build.log
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
+        working-directory: windows-tauri-player
 
       - name: Upload Windows build log
         if: always()
