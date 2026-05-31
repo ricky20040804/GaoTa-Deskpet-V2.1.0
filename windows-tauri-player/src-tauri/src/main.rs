@@ -507,41 +507,45 @@ fn normalized_request_url(base_url: &str) -> Option<String> {
 }
 
 #[tauri::command]
-async fn send_chat(message: String, app: AppHandle, state: State<'_, RuntimeState>) -> ChatResult {
+async fn send_chat(
+    message: String,
+    app: AppHandle,
+    state: State<'_, RuntimeState>,
+) -> Result<ChatResult, String> {
     let text = message.trim().to_string();
     if text.is_empty() {
-        return ChatResult {
+        return Ok(ChatResult {
             ok: false,
             text: None,
             error: Some("请输入要发送的内容。".to_string()),
-        };
+        });
     }
 
     let config = load_doubao_config(&app);
     if !is_doubao_configured(&config) {
-        return ChatResult {
+        return Ok(ChatResult {
             ok: false,
             text: None,
             error: Some("豆包还没有配置完成。请先打开“豆包 API 设置”，至少填写 API Key 和 Endpoint / Model。".to_string()),
-        };
+        });
     }
     let Some(url) = normalized_request_url(&config.base_url) else {
-        return ChatResult {
+        return Ok(ChatResult {
             ok: false,
             text: None,
             error: Some(format!("Doubao Base URL 无效：{}", config.base_url)),
-        };
+        });
     };
 
     let messages = {
         let mut history = match state.chat_history.lock() {
             Ok(history) => history,
             Err(_) => {
-                return ChatResult {
+                return Ok(ChatResult {
                     ok: false,
                     text: None,
                     error: Some("聊天记录状态被占用。".to_string()),
-                };
+                });
             }
         };
         history.push(ChatMessage {
@@ -574,30 +578,30 @@ async fn send_chat(message: String, app: AppHandle, state: State<'_, RuntimeStat
         .await;
 
     let Ok(response) = response else {
-        return ChatResult {
+        return Ok(ChatResult {
             ok: false,
             text: None,
             error: Some("豆包请求失败，请检查网络。".to_string()),
-        };
+        });
     };
     let status = response.status();
     let raw = response.text().await.unwrap_or_default();
     if !status.is_success() {
-        return ChatResult {
+        return Ok(ChatResult {
             ok: false,
             text: None,
             error: Some(format!("豆包返回了错误：\n{}", raw)),
-        };
+        });
     }
 
     let decoded: serde_json::Value = match serde_json::from_str(&raw) {
         Ok(value) => value,
         Err(_) => {
-            return ChatResult {
+            return Ok(ChatResult {
                 ok: false,
                 text: None,
                 error: Some("豆包返回成功，但内容格式无法解析。".to_string()),
-            };
+            });
         }
     };
     let reply = decoded["choices"][0]["message"]["content"]
@@ -606,11 +610,11 @@ async fn send_chat(message: String, app: AppHandle, state: State<'_, RuntimeStat
         .trim()
         .to_string();
     if reply.is_empty() {
-        return ChatResult {
+        return Ok(ChatResult {
             ok: false,
             text: None,
             error: Some("豆包返回成功，但回复内容为空。".to_string()),
-        };
+        });
     }
     if let Ok(mut history) = state.chat_history.lock() {
         history.push(ChatMessage {
@@ -618,11 +622,11 @@ async fn send_chat(message: String, app: AppHandle, state: State<'_, RuntimeStat
             content: reply.clone(),
         });
     }
-    ChatResult {
+    Ok(ChatResult {
         ok: true,
         text: Some(reply),
         error: None,
-    }
+    })
 }
 
 #[tauri::command]
