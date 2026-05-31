@@ -205,8 +205,6 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [isPaymentOpen, paymentOrderId]);
 
-  const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : {};
-
   const refreshCurrentUser = useCallback(async (token = authToken) => {
     if (!token) {
       setCurrentUser(null);
@@ -461,7 +459,6 @@ function App() {
 
       const response = await fetch(generationApiUrl, {
         method: 'POST',
-        headers: authHeaders,
         body: formData,
       });
 
@@ -474,7 +471,6 @@ function App() {
       downloadBlob(blob, 'custompet.zip');
       setGenerationStatus('success');
       setGenerationMessage('生成完成，custompet.zip 已开始下载。请您务必解压到“下载”文件夹，这样运行器才能成功读取。');
-      refreshCurrentUser();
     } catch (error) {
       setGenerationStatus('error');
       setGenerationMessage(formatGenerationError(error));
