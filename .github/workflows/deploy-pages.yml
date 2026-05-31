@@ -34,10 +34,18 @@ jobs:
         id: build_windows
         shell: pwsh
         run: |
+          $logPath = Join-Path $PWD "..\windows-build.log"
           npm install @tauri-apps/cli@^2 --no-save
-          npx tauri build --no-bundle *>&1 | Tee-Object ../windows-build.log
-          if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
+          npx tauri build --no-bundle *>&1 | Tee-Object $logPath
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            $tail = ""
+            if (Test-Path $logPath) {
+              $tail = (Get-Content $logPath -Tail 80) -join "`n"
+            }
+            $escaped = $tail.Replace("%", "%25").Replace("`r", "%0D").Replace("`n", "%0A")
+            Write-Host "::error title=Windows Tauri build failed::$escaped"
+            exit $exitCode
           }
         working-directory: windows-tauri-player
 
