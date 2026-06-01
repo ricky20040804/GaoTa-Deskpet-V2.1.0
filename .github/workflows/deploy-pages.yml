@@ -36,7 +36,7 @@ jobs:
         run: |
           $logPath = Join-Path $PWD "..\windows-build.log"
           npm install @tauri-apps/cli@^2 --no-save
-          npx tauri build --no-bundle *>&1 | Tee-Object $logPath
+          npx tauri build *>&1 | Tee-Object $logPath
           $exitCode = $LASTEXITCODE
           if ($exitCode -ne 0) {
             $tail = ""
@@ -59,27 +59,39 @@ jobs:
       - name: Zip Windows player
         shell: pwsh
         run: |
-          $searchRoots = @("windows-tauri-player/src-tauri/target/release", "target/release")
-          $exe = $null
-          foreach ($root in $searchRoots) {
+          $installerRoots = @("windows-tauri-player/src-tauri/target/release/bundle/nsis", "target/release/bundle/nsis")
+          $installer = $null
+          foreach ($root in $installerRoots) {
             if (Test-Path $root) {
-              $exe = Get-ChildItem $root -Filter *.exe -Recurse |
-                Where-Object { $_.FullName -notmatch "\\deps\\" -and $_.FullName -notmatch "\\build\\" } |
+              $installer = Get-ChildItem $root -Filter "*setup*.exe" -Recurse |
+                Sort-Object LastWriteTime -Descending |
                 Select-Object -First 1
-              if ($exe) {
+              if (-not $installer) {
+                $installer = Get-ChildItem $root -Filter "*.exe" -Recurse |
+                  Sort-Object LastWriteTime -Descending |
+                  Select-Object -First 1
+              }
+              if ($installer) {
                 break
               }
             }
           }
-          if (-not $exe) {
-            Write-Host "Tauri build did not produce a Windows exe. Target contents:"
+          if (-not $installer) {
+            Write-Host "Tauri build did not produce an NSIS installer. Target contents:"
             Get-ChildItem windows-tauri-player/src-tauri/target -Recurse -ErrorAction SilentlyContinue |
-              Select-Object -First 200 |
+              Select-Object -First 300 |
               ForEach-Object { Write-Host $_.FullName }
             exit 1
           }
-          Copy-Item $exe.FullName GaoTa-Deskpet-Windows.exe
-          Compress-Archive -Path GaoTa-Deskpet-Windows.exe -DestinationPath gaotadeskpet-windows.zip -Force
+          Copy-Item $installer.FullName GaoTa-Deskpet-Windows-Setup.exe
+          @(
+            "GaoTa Deskpet Windows 运行器",
+            "",
+            "1. 双击 GaoTa-Deskpet-Windows-Setup.exe 安装。",
+            "2. 安装完成后打开 GaoTa Deskpet。",
+            "3. 把官网生成的 custompet.zip 解压到“下载”文件夹，运行器会自动读取。"
+          ) | Set-Content -Path README-Windows.txt -Encoding UTF8
+          Compress-Archive -Path GaoTa-Deskpet-Windows-Setup.exe, README-Windows.txt -DestinationPath gaotadeskpet-windows.zip -Force
 
       - name: Upload Windows runner
         uses: actions/upload-artifact@v4
