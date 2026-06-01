@@ -59,23 +59,14 @@ jobs:
       - name: Zip Windows player
         shell: pwsh
         run: |
-          $installerRoots = @("windows-tauri-player/src-tauri/target/release/bundle/nsis", "target/release/bundle/nsis")
-          $installer = $null
-          foreach ($root in $installerRoots) {
-            if (Test-Path $root) {
-              $installer = Get-ChildItem $root -Filter "*setup*.exe" -Recurse |
-                Sort-Object LastWriteTime -Descending |
-                Select-Object -First 1
-              if (-not $installer) {
-                $installer = Get-ChildItem $root -Filter "*.exe" -Recurse |
-                  Sort-Object LastWriteTime -Descending |
-                  Select-Object -First 1
-              }
-              if ($installer) {
-                break
-              }
-            }
-          }
+          $installer = Get-ChildItem $PWD -Filter "*.exe" -Recurse |
+            Where-Object {
+              $_.FullName -match "\\bundle\\nsis\\" -and
+              $_.FullName -notmatch "\\deps\\" -and
+              $_.FullName -notmatch "\\build\\"
+            } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
           if (-not $installer) {
             Write-Host "Tauri build did not produce an NSIS installer. Target contents:"
             Get-ChildItem windows-tauri-player/src-tauri/target -Recurse -ErrorAction SilentlyContinue |
@@ -83,15 +74,17 @@ jobs:
               ForEach-Object { Write-Host $_.FullName }
             exit 1
           }
-          Copy-Item $installer.FullName GaoTa-Deskpet-Windows-Setup.exe
+          Write-Host "Packaging installer: $($installer.FullName)"
+          New-Item -ItemType Directory -Path windows-runner-package -Force | Out-Null
+          Copy-Item $installer.FullName windows-runner-package/GaoTa-Deskpet-Windows-Setup.exe
           @(
             "GaoTa Deskpet Windows 运行器",
             "",
             "1. 双击 GaoTa-Deskpet-Windows-Setup.exe 安装。",
             "2. 安装完成后打开 GaoTa Deskpet。",
             "3. 把官网生成的 custompet.zip 解压到“下载”文件夹，运行器会自动读取。"
-          ) | Set-Content -Path README-Windows.txt -Encoding UTF8
-          Compress-Archive -Path GaoTa-Deskpet-Windows-Setup.exe, README-Windows.txt -DestinationPath gaotadeskpet-windows.zip -Force
+          ) | Set-Content -Path windows-runner-package/README-Windows.txt -Encoding UTF8
+          Compress-Archive -Path windows-runner-package/* -DestinationPath gaotadeskpet-windows.zip -Force
 
       - name: Upload Windows runner
         uses: actions/upload-artifact@v4
