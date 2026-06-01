@@ -17,6 +17,8 @@ const video = document.getElementById('petVideo');
 const canvas = document.getElementById('petCanvas');
 const context = canvas.getContext('2d', { willReadFrequently: true });
 const emptyState = document.getElementById('emptyState');
+const emptyStateTitle = document.getElementById('emptyStateTitle');
+const emptyStateMessage = document.getElementById('emptyStateMessage');
 const appRoot = document.getElementById('app');
 const chatPanel = document.getElementById('chatPanel');
 const chatStatus = document.getElementById('chatStatus');
@@ -36,6 +38,13 @@ const systemPromptInput = document.getElementById('systemPromptInput');
 const offscreen = document.createElement('canvas');
 const offscreenContext = offscreen.getContext('2d', { willReadFrequently: true });
 const tauri = window.__TAURI__;
+if (!tauri?.core?.invoke) {
+  showEmptyState(
+    '运行器初始化失败',
+    'Windows 运行器没有成功加载 Tauri 环境。请重新下载官网里的 Windows 运行器后再打开。'
+  );
+  throw new Error('Tauri runtime is unavailable.');
+}
 const invoke = tauri.core.invoke;
 const convertFileSrc = tauri.core.convertFileSrc;
 
@@ -55,6 +64,7 @@ let lastWalkProgress = 0;
 let chatOpen = false;
 let sendingChat = false;
 let contextMenu = null;
+let videoErrorCount = 0;
 
 window.deskpet = {
   getVideos: () => invoke('get_videos'),
@@ -66,6 +76,7 @@ window.deskpet = {
   sendChat: (message) => invoke('send_chat', { message }),
   moveBy: (deltaX, deltaY = 0) => invoke('move_by', { deltaX, deltaY }),
   setChatOpen: (open) => invoke('set_chat_open', { open }),
+  setResourceVisible: (visible) => invoke('set_resource_visible', { visible }),
   dragStart: (screenX, screenY) => invoke('drag_start', { screenX, screenY }),
   dragMove: (screenX, screenY) => invoke('drag_move', { screenX, screenY }),
   dragEnd: () => invoke('drag_end'),
@@ -78,6 +89,16 @@ window.deskpet = {
   onOpenSettings: () => {},
   onSizeChanged: () => {}
 };
+
+function showEmptyState(title, message) {
+  emptyStateTitle.textContent = title;
+  emptyStateMessage.textContent = message;
+  emptyState.hidden = false;
+}
+
+function hideEmptyState() {
+  emptyState.hidden = true;
+}
 
 function fileUrl(filePath) {
   return convertFileSrc ? convertFileSrc(filePath) : encodeURI(`file://${filePath.replace(/\\/g, '/')}`);
@@ -132,7 +153,10 @@ function playAction(action) {
   currentAction = action;
   video.src = fileUrl(videos[action]);
   video.currentTime = 0;
-  video.play().catch(() => {});
+  video.play().catch(() => {
+    showEmptyState('视频播放失败', '已找到 custompet，但 Windows 无法播放当前视频。请重新生成资源包或确认资源包里包含 idle/run/happy/rest 的 mp4 文件。');
+    window.deskpet.setResourceVisible(false).catch(() => {});
+  });
 
   if (action === 'run') {
     runDirection = Math.random() > 0.5 ? 1 : -1;
@@ -275,12 +299,15 @@ async function reloadPetVideos() {
   petLibrary = result;
   videos = result.videos || {};
   const hasVideos = Object.keys(videos).length > 0;
-  emptyState.hidden = hasVideos;
+  videoErrorCount = 0;
+  await window.deskpet.setResourceVisible(hasVideos).catch(() => {});
 
   if (hasVideos) {
+    hideEmptyState();
     playAction(videos.idle ? 'idle' : chooseAction());
     scheduleNextIdleAction(true);
   } else {
+    showEmptyState('没有找到宠物资源', '请把 custompet 解压到“下载”文件夹，确认路径是 Downloads/custompet，然后右键选择重新读取。');
     window.clearTimeout(idleTimer);
     context.clearRect(0, 0, canvasSize, canvasSize);
     video.removeAttribute('src');
@@ -291,7 +318,14 @@ async function reloadPetVideos() {
 }
 
 video.addEventListener('ended', () => scheduleNextIdleAction());
-video.addEventListener('error', () => scheduleNextIdleAction(true));
+video.addEventListener('error', () => {
+  videoErrorCount += 1;
+  if (videoErrorCount >= 2) {
+    showEmptyState('视频无法播放', '已找到 custompet，但视频解码失败。请确认资源包里有 idle/run/happy/rest.mp4，或重新生成资源包。');
+    window.deskpet.setResourceVisible(false).catch(() => {});
+  }
+  scheduleNextIdleAction(true);
+});
 
 canvas.addEventListener('contextmenu', (event) => {
   event.preventDefault();

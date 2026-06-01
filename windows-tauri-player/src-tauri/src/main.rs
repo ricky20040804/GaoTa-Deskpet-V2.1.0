@@ -15,6 +15,8 @@ const ACTIONS: [&str; 4] = ["idle", "run", "happy", "rest"];
 const BOTTOM_MARGIN: i32 = 16;
 const CHAT_WIDTH: u32 = 420;
 const CHAT_HEIGHT: u32 = 520;
+const EMPTY_WIDTH: u32 = 420;
+const EMPTY_HEIGHT: u32 = 240;
 
 #[derive(Default)]
 struct RuntimeState {
@@ -297,6 +299,15 @@ fn move_to_bottom_window(window: &WebviewWindow, app: &AppHandle) -> Result<(), 
     set_window_bounds(window, target.0, target.1, pet_size, pet_size)
 }
 
+fn show_empty_state_window(window: &WebviewWindow) -> Result<(), String> {
+    let Some((area_x, area_y, area_width, area_height)) = work_area(window) else {
+        return set_window_bounds(window, 80, 80, EMPTY_WIDTH, EMPTY_HEIGHT);
+    };
+    let x = area_x + (area_width as i32 - EMPTY_WIDTH as i32) / 2;
+    let y = area_y + (area_height as i32 - EMPTY_HEIGHT as i32) / 2;
+    set_window_bounds(window, x, y, EMPTY_WIDTH, EMPTY_HEIGHT)
+}
+
 fn open_in_explorer(path: PathBuf) -> Result<(), String> {
     Command::new("explorer")
         .arg(path)
@@ -362,6 +373,15 @@ fn set_size(size: String, app: AppHandle, window: WebviewWindow) -> Result<u32, 
 #[tauri::command]
 fn set_chat_open(open: bool, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
     apply_window_mode(&window, &app, open)
+}
+
+#[tauri::command]
+fn set_resource_visible(visible: bool, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+    if visible {
+        move_to_bottom_window(&window, &app)
+    } else {
+        show_empty_state_window(&window)
+    }
 }
 
 #[tauri::command]
@@ -653,6 +673,7 @@ fn main() {
             get_size,
             set_size,
             set_chat_open,
+            set_resource_visible,
             return_bottom,
             move_by,
             drag_start,
