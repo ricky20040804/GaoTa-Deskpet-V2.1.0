@@ -56,41 +56,11 @@ jobs:
           name: windows-build-log
           path: windows-build.log
 
-      - name: Zip Windows player
-        shell: pwsh
-        run: |
-          $installer = Get-ChildItem $PWD -Filter "*.exe" -Recurse |
-            Where-Object {
-              $_.FullName -match "\\bundle\\nsis\\" -and
-              $_.FullName -notmatch "\\deps\\" -and
-              $_.FullName -notmatch "\\build\\"
-            } |
-            Sort-Object LastWriteTime -Descending |
-            Select-Object -First 1
-          if (-not $installer) {
-            Write-Host "Tauri build did not produce an NSIS installer. Target contents:"
-            Get-ChildItem windows-tauri-player/src-tauri/target -Recurse -ErrorAction SilentlyContinue |
-              Select-Object -First 300 |
-              ForEach-Object { Write-Host $_.FullName }
-            exit 1
-          }
-          Write-Host "Packaging installer: $($installer.FullName)"
-          New-Item -ItemType Directory -Path windows-runner-package -Force | Out-Null
-          Copy-Item $installer.FullName windows-runner-package/GaoTa-Deskpet-Windows-Setup.exe
-          @(
-            "GaoTa Deskpet Windows 运行器",
-            "",
-            "1. 双击 GaoTa-Deskpet-Windows-Setup.exe 安装。",
-            "2. 安装完成后打开 GaoTa Deskpet。",
-            "3. 把官网生成的 custompet.zip 解压到“下载”文件夹，运行器会自动读取。"
-          ) | Set-Content -Path windows-runner-package/README-Windows.txt -Encoding UTF8
-          Compress-Archive -Path windows-runner-package/* -DestinationPath gaotadeskpet-windows.zip -Force
-
-      - name: Upload Windows runner
+      - name: Upload Windows runner bundle
         uses: actions/upload-artifact@v4
         with:
-          name: windows-runner
-          path: gaotadeskpet-windows.zip
+          name: windows-runner-bundle
+          path: windows-tauri-player/src-tauri/target/release/bundle/**/*
           if-no-files-found: error
 
   build:
@@ -116,8 +86,28 @@ jobs:
       - name: Download Windows runner
         uses: actions/download-artifact@v4
         with:
-          name: windows-runner
-          path: website/public/downloads
+          name: windows-runner-bundle
+          path: website/windows-runner-bundle
+
+      - name: Package Windows runner download
+        run: |
+          mkdir -p public/downloads windows-runner-package
+          installer="$(find windows-runner-bundle -type f \( -iname '*.exe' -o -iname '*.msi' \) | sort | head -n 1)"
+          if [ -z "$installer" ]; then
+            echo "Windows runner bundle did not contain an installer."
+            find windows-runner-bundle -maxdepth 5 -type f -print
+            exit 1
+          fi
+          cp "$installer" windows-runner-package/GaoTa-Deskpet-Windows-Setup.exe
+          printf '%s\n' \
+            'GaoTa Deskpet Windows 运行器' \
+            '' \
+            '1. 双击 GaoTa-Deskpet-Windows-Setup.exe 安装。' \
+            '2. 安装完成后打开 GaoTa Deskpet。' \
+            '3. 把官网生成的 custompet.zip 解压到“下载”文件夹，运行器会自动读取。' \
+            > windows-runner-package/README-Windows.txt
+          (cd windows-runner-package && zip -r ../public/downloads/gaotadeskpet-windows.zip .)
+          rm -rf windows-runner-bundle windows-runner-package
 
       - name: Build website
         run: npm run build
