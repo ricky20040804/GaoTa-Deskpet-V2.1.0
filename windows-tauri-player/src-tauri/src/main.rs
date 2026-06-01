@@ -198,6 +198,7 @@ fn candidate_pet_dirs(app: &AppHandle) -> Vec<PathBuf> {
 
 fn find_action_video(directory: &Path, action: &str) -> Option<PathBuf> {
     [
+        directory.join(format!("{action}.webm")),
         directory.join(format!("{action}.mp4")),
         directory.join(format!("{action}.mov")),
         directory.join("hevc").join(format!("{action}.mov")),

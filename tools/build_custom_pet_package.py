@@ -129,6 +129,42 @@ def validate_green_background(package_dir: Path, actions: list[str]) -> None:
             )
 
 
+def create_windows_alpha_webms(package_dir: Path, actions: list[str], similarity: float, blend: float) -> None:
+    print("Creating Windows alpha WebM videos...", flush=True)
+    for action in actions:
+        source = package_dir / f"{action}.mp4"
+        destination = package_dir / f"{action}.webm"
+        if not source.exists():
+            raise RuntimeError(f"Missing generated video for Windows WebM: {source.name}")
+
+        filtergraph = (
+            f"chromakey=0x00FF00:{similarity}:{blend},"
+            "format=yuva420p"
+        )
+        run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(source),
+                "-vf",
+                filtergraph,
+                "-an",
+                "-c:v",
+                "libvpx-vp9",
+                "-b:v",
+                "0",
+                "-crf",
+                "32",
+                "-auto-alt-ref",
+                "0",
+                "-pix_fmt",
+                "yuva420p",
+                str(destination),
+            ]
+        )
+
+
 def zip_directory(source_dir: Path, zip_path: Path) -> None:
     zip_path.parent.mkdir(parents=True, exist_ok=True)
     if zip_path.exists():
@@ -210,6 +246,8 @@ def main() -> int:
 
     if not args.skip_background_check:
         validate_green_background(package_dir, args.actions)
+
+    create_windows_alpha_webms(package_dir, args.actions, args.similarity, args.blend)
 
     if args.alpha_mov or args.hevc_alpha:
         run(

@@ -28,6 +28,20 @@ body {
   width: 1px;
 }
 
+#petVideo.direct-video {
+  bottom: 0;
+  display: block;
+  height: var(--pet-size);
+  left: auto;
+  object-fit: contain;
+  opacity: 1;
+  position: absolute;
+  right: 0;
+  top: auto;
+  width: var(--pet-size);
+  z-index: 1;
+}
+
 #petCanvas {
   bottom: 0;
   cursor: grab;

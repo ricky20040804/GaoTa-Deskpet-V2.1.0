@@ -65,6 +65,10 @@ let chatOpen = false;
 let sendingChat = false;
 let contextMenu = null;
 let videoErrorCount = 0;
+let directVideoMode = false;
+let canvasFailureCount = 0;
+let lastPaintedAt = 0;
+let blankFrameWarningShown = false;
 
 window.deskpet = {
   getVideos: () => invoke('get_videos'),
@@ -102,6 +106,23 @@ function hideEmptyState() {
 
 function fileUrl(filePath) {
   return convertFileSrc ? convertFileSrc(filePath) : encodeURI(`file://${filePath.replace(/\\/g, '/')}`);
+}
+
+function shouldUseDirectVideo(filePath) {
+  return /\.webm(?:$|[?#])/i.test(filePath || '');
+}
+
+function setDirectVideoMode(enabled) {
+  directVideoMode = enabled;
+  video.classList.toggle('direct-video', enabled);
+  if (!enabled) {
+    video.style.transform = '';
+  }
+}
+
+function updateDirectVideoTransform() {
+  if (!directVideoMode) return;
+  video.style.transform = currentAction === 'run' && runDirection > 0 ? 'scaleX(-1)' : '';
 }
 
 function resizeCanvas(pixels) {
@@ -151,10 +172,14 @@ function playAction(action) {
   if (!action) return;
 
   currentAction = action;
-  video.src = fileUrl(videos[action]);
+  const sourcePath = videos[action];
+  setDirectVideoMode(shouldUseDirectVideo(sourcePath));
+  canvasFailureCount = 0;
+  blankFrameWarningShown = false;
+  video.src = fileUrl(sourcePath);
   video.currentTime = 0;
   video.play().catch(() => {
-    showEmptyState('视频播放失败', '已找到 custompet，但 Windows 无法播放当前视频。请重新生成资源包或确认资源包里包含 idle/run/happy/rest 的 mp4 文件。');
+    showEmptyState('视频播放失败', '已找到 custompet，但 Windows 无法播放当前视频。请重新生成资源包或确认资源包里包含 idle/run/happy/rest 的 mp4 或 webm 文件。');
     window.deskpet.setResourceVisible(false).catch(() => {});
   });
 
@@ -164,6 +189,7 @@ function playAction(action) {
     lastWalkProgress = 0;
     runDuration = Math.max(2400, Math.min(4200, (video.duration || 3.2) * 1000));
   }
+  updateDirectVideoTransform();
 }
 
 function setChatStatus(text) {
@@ -266,11 +292,43 @@ function drawFrame() {
   context.clearRect(0, 0, canvasSize, canvasSize);
 
   if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-    offscreenContext.clearRect(0, 0, canvasSize, canvasSize);
-    offscreenContext.drawImage(video, 0, 0, canvasSize, canvasSize);
+    if (directVideoMode) {
+      lastPaintedAt = performance.now();
+      hideEmptyState();
+      if (currentAction === 'run') {
+        const elapsed = performance.now() - runStartedAt;
+        const progress = easeInOut(elapsed / runDuration);
+        const delta = (progress - lastWalkProgress) * 220 * runDirection;
+        if (Math.abs(delta) > 0.01) {
+          window.deskpet.moveBy(delta, 0);
+        }
+        lastWalkProgress = progress;
+        updateDirectVideoTransform();
+      }
+      animationFrame = window.requestAnimationFrame(drawFrame);
+      return;
+    }
 
-    const keyedFrame = keyGreen(offscreenContext.getImageData(0, 0, canvasSize, canvasSize));
-    offscreenContext.putImageData(keyedFrame, 0, 0);
+    try {
+      offscreenContext.clearRect(0, 0, canvasSize, canvasSize);
+      offscreenContext.drawImage(video, 0, 0, canvasSize, canvasSize);
+
+      const keyedFrame = keyGreen(offscreenContext.getImageData(0, 0, canvasSize, canvasSize));
+      offscreenContext.putImageData(keyedFrame, 0, 0);
+      lastPaintedAt = performance.now();
+      hideEmptyState();
+    } catch (error) {
+      canvasFailureCount += 1;
+      if (canvasFailureCount === 1) {
+        console.error('Failed to key video frame on canvas:', error);
+      }
+      if (canvasFailureCount > 20) {
+        setDirectVideoMode(true);
+        hideEmptyState();
+      }
+      animationFrame = window.requestAnimationFrame(drawFrame);
+      return;
+    }
 
     if (currentAction === 'run') {
       const elapsed = performance.now() - runStartedAt;
@@ -291,6 +349,12 @@ function drawFrame() {
     context.restore();
   }
 
+  if (!directVideoMode && Object.keys(videos).length > 0 && !blankFrameWarningShown && performance.now() - lastPaintedAt > 3000) {
+    blankFrameWarningShown = true;
+    showEmptyState('视频没有画面', '运行器已启动，但 Windows 没有成功绘制宠物视频。请重新生成资源包，新的资源包会包含 Windows 专用透明 webm。');
+    window.deskpet.setResourceVisible(false).catch(() => {});
+  }
+
   animationFrame = window.requestAnimationFrame(drawFrame);
 }
 
@@ -300,6 +364,8 @@ async function reloadPetVideos() {
   videos = result.videos || {};
   const hasVideos = Object.keys(videos).length > 0;
   videoErrorCount = 0;
+  lastPaintedAt = performance.now();
+  blankFrameWarningShown = false;
   await window.deskpet.setResourceVisible(hasVideos).catch(() => {});
 
   if (hasVideos) {
@@ -310,6 +376,7 @@ async function reloadPetVideos() {
     showEmptyState('没有找到宠物资源', '请把 custompet 解压到“下载”文件夹，确认路径是 Downloads/custompet，然后右键选择重新读取。');
     window.clearTimeout(idleTimer);
     context.clearRect(0, 0, canvasSize, canvasSize);
+    setDirectVideoMode(false);
     video.removeAttribute('src');
     video.load();
     window.clearTimeout(reloadTimer);
@@ -320,7 +387,7 @@ async function reloadPetVideos() {
 video.addEventListener('ended', () => scheduleNextIdleAction());
 video.addEventListener('error', () => {
   videoErrorCount += 1;
-  if (videoErrorCount >= 2) {
+  if (videoErrorCount >= 1) {
     showEmptyState('视频无法播放', '已找到 custompet，但视频解码失败。请确认资源包里有 idle/run/happy/rest.mp4，或重新生成资源包。');
     window.deskpet.setResourceVisible(false).catch(() => {});
   }
